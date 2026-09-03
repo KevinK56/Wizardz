@@ -43,22 +43,25 @@ We have implemented the complete foundational architecture and playable core for
 - [`Home.razor`](file:///c:/Dev/TheApp/Wizardz/Wizardz/Wizardz.Shared/Pages/Home.razor): Integrated responsive dashboard with status bar and toast notifications.
 - [`app.css`](file:///c:/Dev/TheApp/Wizardz/Wizardz/Wizardz.Shared/wwwroot/app.css): Dark fantasy styling with glowing purples, cyans, golds, and responsive mobile/desktop layout.
 
+### 5. Settings, Auto-Save Configuration & UX Improvements
+- [`SettingsModal.razor`](file:///c:/Dev/TheApp/Wizardz/Wizardz/Wizardz.Shared/Components/SettingsModal.razor):
+  - Consolidated settings dialog opened from the header `⚙️ Settings` button.
+  - **Auto-Save Intervals**: Configurable local auto-save (default: 2 minutes) and cloud auto-save (default: 5 minutes) saved in state.
+  - **Cloud Save & Sync**: Integrated Google Drive and Apple iCloud providers, manual code export/import, and conflict resolution.
+  - **Danger Zone**: Reset game button guarded by an explicit destructive action confirmation dialog.
+- **Remembered Buy Options**:
+  - `WizardRoster.razor` stores and remembers the active multiplier (`x1`, `x10`, `x100`, `Max`) across tabs and sessions via `Engine.SetBuyQuantity()`.
+- **Floating Toast Bubble**:
+  - Replaced full-width notification banner with an unobtrusive, floating toast bubble in the bottom-right that pops in smoothly and leaves after 2.5s.
+
 ---
 
 ## Verification Results
 
 ### Automated Tests
-Added [`Wizardz.Tests`](file:///c:/Dev/TheApp/Wizardz/Wizardz/Wizardz.Tests/GameEngineTests.cs) covering:
-1. Initial GameState defaults
-2. Arcane Orb clicking and click power multipliers
-3. Wizard purchasing and MPS compounding
-4. Geometric series cost calculations
-5. SavePayload serialization / deserialization roundtrip
-6. Spell casting and Arcane Surge duration
-7. Astral Ascension reward formulas and reset logic
-
+Added [`Wizardz.Tests`](file:///c:/Dev/TheApp/Wizardz/Wizardz/Wizardz.Tests/GameEngineTests.cs) covering all game mechanics, SignalR notifications, buy preference persistence, and auto-save timer configuration:
 ```text
-Passed!  - Failed: 0, Passed: 7, Skipped: 0, Total: 7, Duration: 173 ms - Wizardz.Tests.dll (net10.0)
+Passed!  - Failed: 0, Passed: 9, Skipped: 0, Total: 9, Duration: 79 ms - Wizardz.Tests.dll (net10.0)
 ```
 
 ### Multi-Target Compilation
