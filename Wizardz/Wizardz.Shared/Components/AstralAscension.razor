@@ -1,0 +1,65 @@
+@inject GameEngine Engine
+
+<div class="ascension-panel">
+    <div class="ascension-header">
+        <div class="ascension-title-group">
+            <h3>🌌 Astral Ascension (Prestige)</h3>
+            <span class="ascension-subtitle">Transcend mortal wizardry into cosmic power</span>
+        </div>
+    </div>
+
+    <div class="ascension-content">
+        <div class="ascension-stats-box">
+            <div class="stat-card">
+                <span class="stat-label">Current Astral Shards</span>
+                <span class="stat-value shards">⭐ @GameEngine.FormatNumber(Engine.State.AstralShards)</span>
+                <span class="stat-sub">Permanent +@(Engine.State.AstralShards * 2)% MPS / +@(Engine.State.AstralShards)% Clicks</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Lifetime Mana Channelled</span>
+                <span class="stat-value mana">🔮 @GameEngine.FormatNumber(Engine.State.LifetimeMana)</span>
+                <span class="stat-sub">Ascensions completed: @Engine.State.AscensionCount</span>
+            </div>
+            <div class="stat-card highlight">
+                <span class="stat-label">Shards Gained on Ascension</span>
+                <span class="stat-value gain">✨ +@GameEngine.FormatNumber(Engine.State.CalculateAscensionReward())</span>
+                <span class="stat-sub">Calculated from lifetime mana</span>
+            </div>
+        </div>
+
+        <div class="ascension-warning-box">
+            <h4>⚠️ Ascension Consequences</h4>
+            <ul>
+                <li><strong>Reset:</strong> Current Mana, Arcane Essence, and hired Wizards will be reset.</li>
+                <li><strong>Preserved:</strong> Total Lifetime Mana stats, Astral Shards, and Celestial Perks persist forever.</li>
+                <li><strong>Reward:</strong> You will claim <strong>+@GameEngine.FormatNumber(Engine.State.CalculateAscensionReward()) Astral Shards</strong> immediately.</li>
+            </ul>
+        </div>
+
+        <div class="ascension-action-center">
+            @if (Engine.State.CalculateAscensionReward() > 0)
+            {
+                <button class="btn-ascend-primary" @onclick="ConfirmAscension">
+                    🌟 Transcend & Claim @GameEngine.FormatNumber(Engine.State.CalculateAscensionReward()) Astral Shards
+                </button>
+            }
+            else
+            {
+                <button class="btn-ascend-disabled" disabled>
+                    🔒 Reach 100,000+ Lifetime Mana to unlock Ascension
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback OnAscended { get; set; }
+
+    private async Task ConfirmAscension()
+    {
+        Engine.Ascend();
+        await OnAscended.InvokeAsync();
+    }
+}

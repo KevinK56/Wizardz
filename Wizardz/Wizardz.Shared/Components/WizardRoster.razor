@@ -1,0 +1,85 @@
+@inject GameEngine Engine
+
+<div class="roster-panel">
+    <div class="roster-header">
+        <div class="roster-title">
+            <h3>🧙‍♂️ Tower Guild Roster</h3>
+            <span class="roster-subtitle">Recruit wizards to generate passive mana</span>
+        </div>
+        
+        <!-- Multiplier Buttons -->
+        <div class="multiplier-group">
+            <button class="mult-btn @(_buyQuantity == 1 ? "active" : "")" @onclick="() => SetBuyQuantity(1)">x1</button>
+            <button class="mult-btn @(_buyQuantity == 10 ? "active" : "")" @onclick="() => SetBuyQuantity(10)">x10</button>
+            <button class="mult-btn @(_buyQuantity == 100 ? "active" : "")" @onclick="() => SetBuyQuantity(100)">x100</button>
+            <button class="mult-btn @(_isMax ? "active" : "")" @onclick="SetBuyMax">Max</button>
+        </div>
+    </div>
+
+    <div class="wizard-cards-list">
+        @foreach (var wizard in Engine.State.Wizards)
+        {
+            int qty = _isMax ? Math.Max(1, wizard.GetMaxAffordable(Engine.State.Mana)) : _buyQuantity;
+            double cost = _isMax ? (qty > 0 ? wizard.GetCostForNext(qty) : wizard.GetCostForNext(1)) : wizard.GetCostForNext(_buyQuantity);
+            bool canAfford = Engine.State.Mana >= cost;
+            double unitMult = Engine.State.GetUnitMultiplier(wizard.Id);
+            double totalUnitMps = wizard.GetTotalMps(unitMult, Engine.State.GlobalMpsMultiplier);
+
+            <div class="wizard-card @(canAfford ? "affordable" : "unaffordable")">
+                <div class="wizard-icon-box">
+                    <span class="wizard-emoji">@wizard.Icon</span>
+                    <span class="wizard-count-badge">@wizard.Count</span>
+                </div>
+
+                <div class="wizard-info">
+                    <div class="wizard-main-row">
+                        <span class="wizard-name">@wizard.Name</span>
+                        <span class="wizard-title-badge">@wizard.Title</span>
+                    </div>
+                    <div class="wizard-stats-row">
+                        <span class="wizard-mps-tag">⚡ +@GameEngine.FormatNumber(wizard.BaseMps * unitMult * Engine.State.GlobalMpsMultiplier) MPS each</span>
+                        <span class="wizard-total-tag">Total: @GameEngine.FormatNumber(totalUnitMps) MPS</span>
+                    </div>
+                    <div class="wizard-desc">@wizard.Description</div>
+                </div>
+
+                <div class="wizard-action-box">
+                    <button class="hire-btn @(canAfford ? "btn-ready" : "btn-disabled")"
+                            disabled="@(!canAfford)"
+                            @onclick="() => BuyWizard(wizard.Id)">
+                        <div class="btn-label">Hire @(_isMax ? $"({qty})" : $"x{_buyQuantity}")</div>
+                        <div class="btn-cost">🔮 @GameEngine.FormatNumber(cost)</div>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private int _buyQuantity = 1;
+    private bool _isMax = false;
+
+    private void SetBuyQuantity(int qty)
+    {
+        _buyQuantity = qty;
+        _isMax = false;
+    }
+
+    private void SetBuyMax()
+    {
+        _isMax = true;
+    }
+
+    private void BuyWizard(string unitId)
+    {
+        if (_isMax)
+        {
+            Engine.BuyMaxWizard(unitId);
+        }
+        else
+        {
+            Engine.BuyWizard(unitId, _buyQuantity);
+        }
+    }
+}

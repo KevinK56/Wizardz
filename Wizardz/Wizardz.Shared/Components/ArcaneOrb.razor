@@ -1,0 +1,88 @@
+@inject GameEngine Engine
+
+<div class="orb-container">
+    <div class="orb-platform">
+        <div class="orb-runes-ring"></div>
+        <div class="orb-sphere @(_isClicked ? "orb-sphere-clicked" : "")" @onclick="HandleOrbClick">
+            <div class="orb-inner-glow"></div>
+            <div class="orb-core">
+                <span class="orb-core-symbol">🔮</span>
+            </div>
+            <div class="orb-lightning-layer"></div>
+        </div>
+    </div>
+
+    <div class="click-power-badge">
+        <span class="badge-icon">⚡</span>
+        <span>+@GameEngine.FormatNumber(Engine.State.ClickManaGain) Mana / Click</span>
+    </div>
+
+    <!-- Floating Click Popups -->
+    <div class="floating-numbers-container">
+        @foreach (var item in _activeFloatingTexts)
+        {
+            <div class="floating-mana-text" style="left: @(item.X)px; top: @(item.Y)px;">
+                +@GameEngine.FormatNumber(item.Amount)
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private bool _isClicked = false;
+    private readonly List<FloatingTextItem> _activeFloatingTexts = new();
+    private readonly Random _rand = new();
+
+    protected override void OnInitialized()
+    {
+        Engine.OnManaClicked += HandleManaClicked;
+    }
+
+    private void HandleOrbClick(MouseEventArgs e)
+    {
+        _isClicked = true;
+        Engine.ClickFocusOrb();
+        _ = ResetClickAnimation();
+    }
+
+    private void HandleManaClicked(double amount)
+    {
+        // Add floating text with small random offset
+        int offsetX = _rand.Next(30, 150);
+        int offsetY = _rand.Next(40, 120);
+
+        var item = new FloatingTextItem
+        {
+            Id = Guid.NewGuid(),
+            Amount = amount,
+            X = offsetX,
+            Y = offsetY
+        };
+
+        _activeFloatingTexts.Add(item);
+
+        // Remove after animation finishes
+        _ = Task.Delay(900).ContinueWith(_ =>
+        {
+            _activeFloatingTexts.Remove(item);
+            InvokeAsync(StateHasChanged);
+        });
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ResetClickAnimation()
+    {
+        await Task.Delay(100);
+        _isClicked = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private class FloatingTextItem
+    {
+        public Guid Id { get; set; }
+        public double Amount { get; set; }
+        public int X { get; set; }
+        public int Y { get; set; }
+    }
+}

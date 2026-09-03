@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
+using Wizardz.Shared.Services;
 
 namespace Wizardz
 {
@@ -15,6 +16,7 @@ namespace Wizardz
                 });
 
             builder.Services.AddMauiBlazorWebView();
+            builder.Services.AddWizardzGame();
 
 #if DEBUG
             builder.Services.AddBlazorWebViewDeveloperTools();

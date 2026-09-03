@@ -1,0 +1,54 @@
+@inject GameEngine Engine
+
+<div class="upgrades-panel">
+    <div class="panel-header">
+        <h3>🏛️ Arcane Academy Researches</h3>
+        <span class="panel-subtitle">Permanent guild enhancements and multiplier tomes</span>
+    </div>
+
+    <div class="upgrades-grid">
+        @foreach (var upg in Engine.State.Upgrades.Where(u => !u.IsPurchased && Engine.State.LifetimeMana >= u.RequiredLifetimeMana))
+        {
+            bool canAfford = upg.CanAfford(Engine.State.Mana, Engine.State.ArcaneEssence, Engine.State.AstralShards);
+
+            <div class="upgrade-card @(canAfford ? "upgrade-ready" : "upgrade-locked")" @onclick="() => BuyUpgrade(upg.Id)">
+                <div class="upgrade-icon">@upg.Icon</div>
+                <div class="upgrade-details">
+                    <div class="upgrade-name">@upg.Name</div>
+                    <div class="upgrade-desc">@upg.Description</div>
+                    <div class="upgrade-cost-row">
+                        @if (upg.CostMana > 0)
+                        {
+                            <span class="cost-item mana">🔮 @GameEngine.FormatNumber(upg.CostMana)</span>
+                        }
+                        @if (upg.CostEssence > 0)
+                        {
+                            <span class="cost-item essence">💠 @GameEngine.FormatNumber(upg.CostEssence)</span>
+                        }
+                        @if (upg.CostAstralShards > 0)
+                        {
+                            <span class="cost-item shards">⭐ @GameEngine.FormatNumber(upg.CostAstralShards)</span>
+                        }
+                    </div>
+                </div>
+                <div class="upgrade-action">
+                    <button class="btn-buy-upgrade" disabled="@(!canAfford)">Research</button>
+                </div>
+            </div>
+        }
+
+        @if (!Engine.State.Upgrades.Any(u => !u.IsPurchased && Engine.State.LifetimeMana >= u.RequiredLifetimeMana))
+        {
+            <div class="no-upgrades-msg">
+                <span>✨ All current researches completed! Earn more lifetime mana to discover ancient tomes.</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private void BuyUpgrade(string upgradeId)
+    {
+        Engine.BuyUpgrade(upgradeId);
+    }
+}

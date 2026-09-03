@@ -1,7 +1,175 @@
-﻿@page "/"
+@page "/"
+@implements IDisposable
+@inject GameEngine Engine
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Wizardz - Arcane Spire</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="game-viewport">
+    <!-- Top Header Status Bar -->
+    <header class="game-header">
+        <div class="brand-section">
+            <span class="brand-icon">🧙‍♂️</span>
+            <h1 class="brand-title">WIZARDZ</h1>
+        </div>
 
-Welcome to your new app.
+        <div class="resources-bar">
+            <!-- Mana Pill -->
+            <div class="resource-pill mana">
+                <span class="res-icon">🔮</span>
+                <div class="res-data">
+                    <span class="res-value">@GameEngine.FormatNumber(Engine.State.Mana)</span>
+                    <span class="res-rate">+@GameEngine.FormatNumber(Engine.State.CurrentMps)/s</span>
+                </div>
+            </div>
+
+            <!-- Arcane Essence Pill -->
+            <div class="resource-pill essence">
+                <span class="res-icon">💠</span>
+                <div class="res-data">
+                    <span class="res-value">@GameEngine.FormatNumber(Engine.State.ArcaneEssence)</span>
+                    <span class="res-rate">Essence</span>
+                </div>
+            </div>
+
+            <!-- Astral Shards Pill -->
+            @if (Engine.State.AstralShards > 0 || Engine.State.LifetimeMana >= 50_000)
+            {
+                <div class="resource-pill astral">
+                    <span class="res-icon">⭐</span>
+                    <div class="res-data">
+                        <span class="res-value">@GameEngine.FormatNumber(Engine.State.AstralShards)</span>
+                        <span class="res-rate">Astral</span>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="header-actions">
+            <button class="btn-icon-action" @onclick="() => _showCloudModal = true" title="Cloud Save & Sync">
+                ☁️ Cloud
+            </button>
+            <button class="btn-icon-action" @onclick="ManualSave" title="Save Game">
+                💾 Save
+            </button>
+            <button class="btn-icon-action" @onclick="PromptReset" title="Reset Progress">
+                ⚙️
+            </button>
+        </div>
+    </header>
+
+    <!-- Notification Banner -->
+    @if (!string.IsNullOrEmpty(_currentToast))
+    {
+        <div class="notification-banner">
+            @_currentToast
+        </div>
+    }
+
+    <!-- Main Game Workspace -->
+    <div class="game-main-content">
+        <!-- Spire Core (Orb + Spellbook) -->
+        <section class="spire-stage">
+            <ArcaneOrb />
+            <SpellbookBar />
+        </section>
+
+        <!-- Right Management Tab Panel -->
+        <aside class="management-panel">
+            <nav class="tab-nav">
+                <button class="tab-btn @(_activeTab == "roster" ? "active" : "")" @onclick="@(() => _activeTab = "roster")">
+                    🧙 Guild (@Engine.State.Wizards.Sum(w => w.Count))
+                </button>
+                <button class="tab-btn @(_activeTab == "research" ? "active" : "")" @onclick="@(() => _activeTab = "research")">
+                    🏛️ Academy (@Engine.State.Upgrades.Count(u => !u.IsPurchased && Engine.State.LifetimeMana >= u.RequiredLifetimeMana))
+                </button>
+                <button class="tab-btn @(_activeTab == "astral" ? "active" : "")" @onclick="@(() => _activeTab = "astral")">
+                    🌌 Astral Gate
+                </button>
+            </nav>
+
+            <div class="tab-content">
+                @if (_activeTab == "roster")
+                {
+                    <WizardRoster />
+                }
+                else if (_activeTab == "research")
+                {
+                    <UpgradeShop />
+                }
+                else if (_activeTab == "astral")
+                {
+                    <AstralAscension OnAscended="HandleAscended" />
+                }
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modals -->
+    @if (_showCloudModal)
+    {
+        <CloudSaveModal OnClose="() => _showCloudModal = false" />
+    }
+
+    <OfflineGainsModal />
+</div>
+
+@code {
+    private string _activeTab = "roster";
+    private bool _showCloudModal = false;
+    private string? _currentToast = null;
+    private CancellationTokenSource? _toastCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Engine.OnStateChanged += HandleStateChanged;
+        Engine.OnNotification += ShowToast;
+
+        await Engine.InitializeAsync();
+    }
+
+    private void HandleStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ShowToast(string message)
+    {
+        _toastCts?.Cancel();
+        _toastCts = new CancellationTokenSource();
+        _currentToast = message;
+        InvokeAsync(StateHasChanged);
+
+        _ = Task.Delay(3500, _toastCts.Token).ContinueWith(t =>
+        {
+            if (!t.IsCanceled)
+            {
+                _currentToast = null;
+                InvokeAsync(StateHasChanged);
+            }
+        });
+    }
+
+    private async Task ManualSave()
+    {
+        await Engine.SaveAsync();
+        ShowToast("Game saved successfully!");
+    }
+
+    private async Task PromptReset()
+    {
+        await Engine.ResetGameAsync();
+    }
+
+    private void HandleAscended()
+    {
+        _activeTab = "roster";
+    }
+
+    public void Dispose()
+    {
+        Engine.OnStateChanged -= HandleStateChanged;
+        Engine.OnNotification -= ShowToast;
+        _toastCts?.Cancel();
+        _toastCts?.Dispose();
+    }
+}

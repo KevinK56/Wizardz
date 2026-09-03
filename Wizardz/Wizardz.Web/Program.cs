@@ -1,4 +1,5 @@
 using Wizardz.Web.Components;
+using Wizardz.Shared.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
+builder.Services.AddWizardzGame();
 
 var app = builder.Build();
 

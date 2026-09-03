@@ -1,0 +1,57 @@
+@inject GameEngine Engine
+
+<div class="spellbook-bar">
+    <div class="spellbook-header">
+        <h4>📜 Grimoire Spells</h4>
+    </div>
+
+    <div class="spells-row">
+        @foreach (var spell in Engine.State.Spells)
+        {
+            bool canCast = spell.CanCast(Engine.State.Mana, Engine.State.ArcaneEssence);
+            double cooldownPercent = spell.CooldownSeconds > 0 
+                ? (spell.CurrentCooldownRemaining / spell.CooldownSeconds) * 100 
+                : 0;
+
+            <div class="spell-slot @(spell.IsActive ? "active-surge" : "") @(!canCast && !spell.IsActive ? "slot-disabled" : "")"
+                 @onclick="() => CastSpell(spell.Id)">
+                
+                <div class="spell-icon-wrapper">
+                    <span class="spell-emoji">@spell.Icon</span>
+
+                    @if (spell.IsOnCooldown && !spell.IsActive)
+                    {
+                        <div class="spell-cooldown-overlay" style="height: @(cooldownPercent)%;"></div>
+                        <div class="spell-cooldown-timer">@Math.Ceiling(spell.CurrentCooldownRemaining)s</div>
+                    }
+
+                    @if (spell.IsActive)
+                    {
+                        <div class="spell-active-badge">@Math.Ceiling(spell.CurrentDurationRemaining)s</div>
+                    }
+                </div>
+
+                <div class="spell-meta">
+                    <div class="spell-name">@spell.Name</div>
+                    <div class="spell-costs">
+                        @if (spell.ManaCost > 0)
+                        {
+                            <span class="cost-tag">🔮 @GameEngine.FormatNumber(spell.ManaCost)</span>
+                        }
+                        @if (spell.EssenceCost > 0)
+                        {
+                            <span class="cost-tag essence">💠 @spell.EssenceCost</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private void CastSpell(string spellId)
+    {
+        Engine.CastSpell(spellId);
+    }
+}
