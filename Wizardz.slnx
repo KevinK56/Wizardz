@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Wizardz/Wizardz.Shared/Wizardz.Shared.csproj" />
+  <Project Path="Wizardz/Wizardz.Web.Client/Wizardz.Web.Client.csproj" />
+  <Project Path="Wizardz/Wizardz.Web/Wizardz.Web.csproj" />
+  <Project Path="Wizardz/Wizardz/Wizardz.csproj" />
+</Solution>
