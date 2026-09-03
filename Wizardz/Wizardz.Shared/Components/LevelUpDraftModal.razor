@@ -1,0 +1,52 @@
+@using Wizardz.Shared.Models
+
+<div class="draft-modal-backdrop">
+    <div class="draft-modal-box">
+        <div class="draft-header">
+            <span class="draft-level-tag">✨ LEVEL UP! ✨</span>
+            <h3>CHOOSE A SPELL UPGRADE</h3>
+            <span class="draft-sub">Empower your arcane arsenal to survive deeper floors</span>
+        </div>
+
+        <div class="draft-cards-row">
+            @foreach (var opt in Options)
+            {
+                <div class="draft-card element-@opt.Element.ToString().ToLowerInvariant()" @onclick="() => Select(opt)">
+                    <div class="draft-card-badge">@opt.RarityLabel</div>
+                    <div class="draft-card-icon">@opt.Icon</div>
+                    <h4 class="draft-card-title">@opt.Title</h4>
+                    
+                    @if (opt.TargetLevel > 0)
+                    {
+                        <div class="draft-level-indicator">
+                            @if (opt.IsNewUnlock)
+                            {
+                                <span class="badge-new">NEW SPELL</span>
+                            }
+                            else
+                            {
+                                <span class="badge-rank">Lv.@opt.CurrentLevel ➔ Lv.@opt.TargetLevel</span>
+                            }
+                        </div>
+                    }
+
+                    <p class="draft-card-desc">@opt.Description</p>
+                    <button class="btn-draft-pick">SELECT</button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public List<DraftOption> Options { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<DraftOption> OnSelect { get; set; }
+
+    private async Task Select(DraftOption option)
+    {
+        await OnSelect.InvokeAsync(option);
+    }
+}

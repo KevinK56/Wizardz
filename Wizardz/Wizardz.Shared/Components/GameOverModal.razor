@@ -1,0 +1,44 @@
+@inject GameEngine Engine
+
+<div class="gameover-modal-backdrop">
+    <div class="gameover-modal-box">
+        <div class="gameover-skull">💀</div>
+        <h2 class="gameover-title">YOU HAVE FALLEN</h2>
+        <p class="gameover-sub">Your physical form was overwhelmed, but your collected Mana is preserved!</p>
+
+        <div class="run-stats-grid">
+            <div class="run-stat-chip">
+                <span class="chip-label">Floor Reached</span>
+                <span class="chip-val">🏰 Floor @Engine.ScrollingDungeon.CurrentLevel.FloorNumber</span>
+            </div>
+            <div class="run-stat-chip">
+                <span class="chip-label">Monsters Slain</span>
+                <span class="chip-val">💀 @Engine.ScrollingDungeon.MonstersSlainOnFloor</span>
+            </div>
+            <div class="run-stat-chip">
+                <span class="chip-label">In-Run Level</span>
+                <span class="chip-val">⭐ Level @Engine.ScrollingDungeon.InRunLevel</span>
+            </div>
+            <div class="run-stat-chip">
+                <span class="chip-label">Total Saved Mana</span>
+                <span class="chip-val mana">🔮 @GameEngine.FormatNumber(Engine.State.Mana)</span>
+            </div>
+        </div>
+
+        <div class="gameover-actions">
+            <button class="btn-gameover-restart" @onclick="Restart">
+                ⚔️ Play Again
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback OnRestart { get; set; }
+
+    private async Task Restart()
+    {
+        await OnRestart.InvokeAsync();
+    }
+}

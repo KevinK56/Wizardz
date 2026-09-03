@@ -9,6 +9,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveStorage, LocalSaveStorage>();
         services.AddScoped<ICloudSaveService, CloudSaveService>();
         services.AddScoped<IGameNotificationService, SignalRNotificationService>();
+        services.AddScoped<SkillTreeManager>();
+        services.AddScoped<ScrollingDungeonEngine>();
         services.AddScoped<DungeonCrawlerEngine>();
         services.AddScoped<GameEngine>();
         return services;

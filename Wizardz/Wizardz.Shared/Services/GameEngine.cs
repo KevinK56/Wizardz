@@ -24,13 +24,23 @@ public class GameEngine : IDisposable
     public event Action<double, TimeSpan>? OnOfflineGainsCalculated;
 
     public DungeonCrawlerEngine Dungeon { get; }
+    public SkillTreeManager SkillTree { get; }
+    public ScrollingDungeonEngine ScrollingDungeon { get; }
 
-    public GameEngine(ISaveStorage saveStorage, ICloudSaveService cloudSaveService, IGameNotificationService notificationService, DungeonCrawlerEngine dungeonEngine)
+    public GameEngine(
+        ISaveStorage saveStorage, 
+        ICloudSaveService cloudSaveService, 
+        IGameNotificationService notificationService, 
+        DungeonCrawlerEngine dungeonEngine,
+        SkillTreeManager skillTree,
+        ScrollingDungeonEngine scrollingDungeon)
     {
         _saveStorage = saveStorage;
         _cloudSaveService = cloudSaveService;
         _notificationService = notificationService;
         Dungeon = dungeonEngine;
+        SkillTree = skillTree;
+        ScrollingDungeon = scrollingDungeon;
         State = GameState.CreateDefault();
         _tickTimer = new PeriodicTimer(TimeSpan.FromMilliseconds(100)); // 10 ticks per sec
     }
@@ -53,7 +63,9 @@ public class GameEngine : IDisposable
             State = GameState.CreateDefault();
         }
 
+        SkillTree.SyncWithGameState(State);
         Dungeon.Initialize(State);
+        ScrollingDungeon.StartNewRun(State);
 
         IsInitialized = true;
         State.LastTickTimeUtc = DateTime.UtcNow;
@@ -168,6 +180,7 @@ public class GameEngine : IDisposable
 
         // 3. Tick Top-Down Dungeon Crawler
         Dungeon.Tick(deltaSeconds);
+        ScrollingDungeon.Tick(deltaSeconds);
 
         State.LastTickTimeUtc = DateTime.UtcNow;
     }
@@ -293,7 +306,9 @@ public class GameEngine : IDisposable
     {
         await _saveStorage.ClearStateAsync();
         State = GameState.CreateDefault();
+        SkillTree.SyncWithGameState(State);
         Dungeon.Initialize(State);
+        ScrollingDungeon.StartNewRun(State);
         OnNotification?.Invoke("Game has been reset.");
         OnStateChanged?.Invoke();
     }
@@ -340,7 +355,9 @@ public class GameEngine : IDisposable
     public async Task ApplyCloudStateAsync(GameState cloudState)
     {
         State = cloudState;
+        SkillTree.SyncWithGameState(State);
         Dungeon.Initialize(State);
+        ScrollingDungeon.StartNewRun(State);
         await SaveAsync();
         OnNotification?.Invoke("Loaded cloud save state!");
         OnStateChanged?.Invoke();

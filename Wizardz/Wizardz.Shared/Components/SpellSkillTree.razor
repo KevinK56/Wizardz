@@ -1,0 +1,130 @@
+@inject GameEngine Engine
+@inject IGameNotificationService Notifier
+@implements IDisposable
+
+<div class="skilltree-container">
+    <div class="skilltree-header">
+        <div class="tree-title-group">
+            <h3>📜 Arcane Skill Tree</h3>
+            <span class="tree-subtitle">Permanent meta-progression: unlock spells & ascend power</span>
+        </div>
+        <div class="tree-mana-pill">
+            <span class="pill-label">Available Mana:</span>
+            <span class="pill-val">🔮 @GameEngine.FormatNumber(Engine.State.Mana)</span>
+        </div>
+    </div>
+
+    <!-- Branch Category Navigation Tabs -->
+    <nav class="tree-branch-nav">
+        <button class="branch-tab @(_activeBranch == SkillBranch.Pyromancy ? "active fire" : "")"
+                @onclick="() => _activeBranch = SkillBranch.Pyromancy">
+            🔥 Pyromancy
+        </button>
+        <button class="branch-tab @(_activeBranch == SkillBranch.Electromancy ? "active lightning" : "")"
+                @onclick="() => _activeBranch = SkillBranch.Electromancy">
+            ⚡ Electromancy
+        </button>
+        <button class="branch-tab @(_activeBranch == SkillBranch.Cryomancy ? "active frost" : "")"
+                @onclick="() => _activeBranch = SkillBranch.Cryomancy">
+            ❄️ Cryomancy
+        </button>
+        <button class="branch-tab @(_activeBranch == SkillBranch.ArcaneMastery ? "active arcane" : "")"
+                @onclick="() => _activeBranch = SkillBranch.ArcaneMastery">
+            🔮 Arcane
+        </button>
+        <button class="branch-tab @(_activeBranch == SkillBranch.Vitality ? "active vitality" : "")"
+                @onclick="() => _activeBranch = SkillBranch.Vitality">
+            🛡️ Vitality
+        </button>
+    </nav>
+
+    <!-- Skill Nodes for Active Branch -->
+    <div class="tree-nodes-list">
+        @foreach (var node in Engine.SkillTree.AllNodes.Where(n => n.Branch == _activeBranch))
+        {
+            bool canAfford = Engine.State.Mana >= node.GetCostForNextLevel();
+            bool prereqMet = string.IsNullOrEmpty(node.PrerequisiteNodeId) ||
+                             Engine.SkillTree.AllNodes.Any(n => n.Id == node.PrerequisiteNodeId && n.Level > 0);
+            bool isMaxed = node.Level >= node.MaxLevel;
+            bool canPurchase = canAfford && prereqMet && !isMaxed;
+
+            <div class="skill-node-card @(node.IsUnlocked ? "node-unlocked" : "node-locked") @(isMaxed ? "node-maxed" : "")">
+                <div class="node-icon-box">
+                    <span class="node-emoji">@node.Icon</span>
+                    <span class="node-level-tag">Lv.@node.Level/@node.MaxLevel</span>
+                </div>
+
+                <div class="node-info">
+                    <div class="node-title-row">
+                        <span class="node-name">@node.Name</span>
+                        @if (node.IsSpellUnlock)
+                        {
+                            <span class="badge-spell-unlock">SPELL UNLOCK</span>
+                        }
+                    </div>
+                    <div class="node-desc">@node.Description</div>
+
+                    @if (!prereqMet)
+                    {
+                        var prereq = Engine.SkillTree.AllNodes.FirstOrDefault(n => n.Id == node.PrerequisiteNodeId);
+                        <div class="prereq-warning">⚠️ Requires @(prereq?.Name ?? "Previous Tier") (Lv. 1+)</div>
+                    }
+
+                    <!-- Level pips -->
+                    <div class="node-pips-track">
+                        @for (int i = 1; i <= node.MaxLevel; i++)
+                        {
+                            <span class="pip @(i <= node.Level ? "pip-filled" : "")"></span>
+                        }
+                    </div>
+                </div>
+
+                <div class="node-action-box">
+                    @if (isMaxed)
+                    {
+                        <button class="btn-node-buy maxed" disabled>MAX</button>
+                    }
+                    else
+                    {
+                        <button class="btn-node-buy @(canPurchase ? "btn-ready" : "btn-disabled")"
+                                disabled="@(!canPurchase)"
+                                @onclick="() => BuyNode(node.Id)">
+                            <div class="btn-label">Upgrade</div>
+                            <div class="btn-cost">🔮 @GameEngine.FormatNumber(node.GetCostForNextLevel())</div>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private SkillBranch _activeBranch = SkillBranch.Pyromancy;
+
+    protected override void OnInitialized()
+    {
+        Engine.SkillTree.SyncWithGameState(Engine.State);
+        Engine.OnStateChanged += HandleStateChanged;
+    }
+
+    private void HandleStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void BuyNode(string nodeId)
+    {
+        bool ok = Engine.SkillTree.PurchaseNode(nodeId, Engine.State);
+        if (ok)
+        {
+            _ = Engine.SaveAsync();
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        Engine.OnStateChanged -= HandleStateChanged;
+    }
+}

@@ -56,20 +56,19 @@
 
     <!-- Main Game Workspace -->
     <div class="game-main-content">
-        <!-- Top-Down Dungeon Viewport + Spellbook Bar -->
+        <!-- Top-Down Scrolling Roguelite Dungeon Viewport -->
         <section class="spire-stage dungeon-stage">
-            <TopDownDungeonView />
-            <SpellbookBar />
+            <ScrollingDungeonCanvas />
         </section>
 
         <!-- Right Management Tab Panel -->
         <aside class="management-panel">
             <nav class="tab-nav">
+                <button class="tab-btn @(_activeTab == "skills" ? "active" : "")" @onclick="@(() => _activeTab = "skills")">
+                    📜 Skills
+                </button>
                 <button class="tab-btn @(_activeTab == "gear" ? "active" : "")" @onclick="@(() => _activeTab = "gear")">
                     ⚔️ Gear (@Engine.State.Inventory.Count)
-                </button>
-                <button class="tab-btn @(_activeTab == "roster" ? "active" : "")" @onclick="@(() => _activeTab = "roster")">
-                    🧙 Guild (@Engine.State.Wizards.Sum(w => w.Count))
                 </button>
                 <button class="tab-btn @(_activeTab == "research" ? "active" : "")" @onclick="@(() => _activeTab = "research")">
                     🏛️ Academy
@@ -80,13 +79,13 @@
             </nav>
 
             <div class="tab-content">
-                @if (_activeTab == "gear")
+                @if (_activeTab == "skills")
+                {
+                    <SpellSkillTree />
+                }
+                else if (_activeTab == "gear")
                 {
                     <EquipmentInventory />
-                }
-                else if (_activeTab == "roster")
-                {
-                    <WizardRoster />
                 }
                 else if (_activeTab == "research")
                 {
@@ -121,7 +120,7 @@
 </div>
 
 @code {
-    private string _activeTab = "roster";
+    private string _activeTab = "skills";
     private bool _showSettingsModal = false;
     private string? _currentToast = null;
     private CancellationTokenSource? _toastCts;
@@ -164,7 +163,7 @@
 
     private void HandleAscended()
     {
-        _activeTab = "roster";
+        _activeTab = "skills";
     }
 
     public void Dispose()

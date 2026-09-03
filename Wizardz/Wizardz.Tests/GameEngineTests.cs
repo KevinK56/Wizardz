@@ -53,7 +53,9 @@ public class GameEngineTests
     private static GameEngine CreateEngine(ISaveStorage storage, ICloudSaveService cloud, IGameNotificationService notifier)
     {
         var dungeon = new DungeonCrawlerEngine(notifier);
-        return new GameEngine(storage, cloud, notifier, dungeon);
+        var skillTree = new SkillTreeManager();
+        var scrolling = new ScrollingDungeonEngine(skillTree, notifier);
+        return new GameEngine(storage, cloud, notifier, dungeon, skillTree, scrolling);
     }
 
     [Fact]
@@ -303,5 +305,56 @@ public class GameEngineTests
         dungeon.Initialize(state);
         Assert.True(dungeon.CurrentLevel.IsBossFloor);
         Assert.Equal(DungeonBiome.SunkenCrypt, dungeon.CurrentLevel.Biome);
+    }
+
+    [Fact]
+    public void TestSkillTreeManager_CanPurchaseNodesAndApplyStats()
+    {
+        var tree = new SkillTreeManager();
+        var state = GameState.CreateDefault();
+        state.Mana = 5000;
+        tree.SyncWithGameState(state);
+
+        var hpNode = tree.AllNodes.First(n => n.Id == "vitality_hp");
+        Assert.Equal(0, hpNode.Level);
+
+        bool bought = tree.PurchaseNode("vitality_hp", state);
+        Assert.True(bought);
+        Assert.Equal(1, hpNode.Level);
+        Assert.Equal(1, state.MetaSkillLevels["vitality_hp"]);
+
+        var hero = new HeroEntity();
+        tree.ApplyPermanentStatsToHero(state, hero);
+        Assert.Equal(125.0, hero.MaxHealth); // 100 + (1 * 25)
+    }
+
+    [Fact]
+    public void TestScrollingDungeon_DirectMovementAndGemPickup()
+    {
+        var notifier = new MockNotificationService();
+        var tree = new SkillTreeManager();
+        var scrolling = new ScrollingDungeonEngine(tree, notifier);
+        var state = GameState.CreateDefault();
+
+        scrolling.StartNewRun(state);
+        Assert.Equal(1000.0, scrolling.Hero.WorldX);
+        Assert.Equal(1000.0, scrolling.Hero.WorldY);
+
+        // Move Right
+        scrolling.SetMovementInput(1, 0);
+        scrolling.Tick(0.1); // 100ms
+        Assert.True(scrolling.Hero.WorldX > 1000.0);
+
+        // Drop Gem near Hero
+        scrolling.XpGems.Add(new XpGemEntity
+        {
+            WorldX = scrolling.Hero.WorldX + 20.0,
+            WorldY = scrolling.Hero.WorldY,
+            Value = 50.0
+        });
+
+        // Magnet collects gem
+        scrolling.Tick(0.1);
+        Assert.True(scrolling.CurrentXp > 0);
     }
 }

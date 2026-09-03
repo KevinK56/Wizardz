@@ -1,0 +1,266 @@
+@inject GameEngine Engine
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<div class="scrolling-dungeon-frame" tabindex="0" @onkeydown="HandleKeyDown" @onkeyup="HandleKeyUp" @ref="_dungeonContainer">
+    <!-- Top In-Run HUD -->
+    <div class="dungeon-run-hud">
+        <!-- XP Progress Bar (Top Bar) -->
+        <div class="xp-bar-container">
+            <div class="xp-bar-fill" style="width: @(Math.Clamp((Engine.ScrollingDungeon.CurrentXp / Engine.ScrollingDungeon.TargetXp) * 100.0, 0, 100))%;"></div>
+            <span class="xp-bar-text">LV.@Engine.ScrollingDungeon.InRunLevel XP (@GameEngine.FormatNumber(Engine.ScrollingDungeon.CurrentXp)/@GameEngine.FormatNumber(Engine.ScrollingDungeon.TargetXp))</span>
+        </div>
+
+        <!-- Hero HP Bar & Floor Info Row -->
+        <div class="hud-status-row">
+            <div class="hero-hp-meter">
+                <span class="hp-heart">❤️</span>
+                <div class="hp-track">
+                    <div class="hp-fill" style="width: @(Math.Clamp((Engine.ScrollingDungeon.Hero.CurrentHealth / Engine.ScrollingDungeon.Hero.MaxHealth) * 100.0, 0, 100))%;"></div>
+                </div>
+                <span class="hp-val">@Math.Ceiling(Engine.ScrollingDungeon.Hero.CurrentHealth)/@Math.Ceiling(Engine.ScrollingDungeon.Hero.MaxHealth)</span>
+            </div>
+
+            <div class="floor-badge @(Engine.ScrollingDungeon.CurrentLevel.IsBossFloor ? "boss-floor" : "")">
+                <span>@(Engine.ScrollingDungeon.CurrentLevel.IsBossFloor ? "👑 BOSS" : "🏰 FLOOR") @Engine.ScrollingDungeon.CurrentLevel.FloorNumber</span>
+                <span class="floor-sub">@Engine.ScrollingDungeon.CurrentLevel.BiomeName</span>
+            </div>
+
+            <div class="kill-quota">
+                @if (Engine.ScrollingDungeon.Stairs.IsActive)
+                {
+                    <span class="stairs-ready-blink">🌀 STAIRS OPEN!</span>
+                }
+                else
+                {
+                    <span>💀 @Engine.ScrollingDungeon.MonstersSlainOnFloor/@Engine.ScrollingDungeon.MonstersRequiredOnFloor</span>
+                }
+            </div>
+        </div>
+
+        <!-- Boss Health Bar (if active) -->
+        @if (Engine.ScrollingDungeon.IsBossActive)
+        {
+            var boss = Engine.ScrollingDungeon.Monsters.FirstOrDefault(m => m.IsBoss);
+            if (boss != null)
+            {
+                <div class="boss-health-banner">
+                    <div class="boss-title">⚠️ @boss.Name</div>
+                    <div class="boss-hp-track">
+                        <div class="boss-hp-fill" style="width: @(Math.Clamp((boss.CurrentHealth / boss.MaxHealth) * 100.0, 0, 100))%;"></div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+    <!-- Scrolling Camera Viewport -->
+    <div class="viewport-window">
+        <div class="world-canvas @GetBiomeClass()"
+             style="transform: translate3d(-@(Engine.ScrollingDungeon.CameraX)px, -@(Engine.ScrollingDungeon.CameraY)px, 0px);">
+
+            <!-- Stairs to Next Floor -->
+            @if (Engine.ScrollingDungeon.Stairs.IsActive)
+            {
+                <div class="world-stairs-entity"
+                     style="left: @(Engine.ScrollingDungeon.Stairs.WorldX)px; top: @(Engine.ScrollingDungeon.Stairs.WorldY)px;"
+                     @onclick="() => Engine.ScrollingDungeon.DescendToNextFloor()">
+                    <div class="stairs-rune-glow"></div>
+                    <span class="stairs-icon">🌀</span>
+                    <span class="stairs-label">Descend (F@(Engine.ScrollingDungeon.CurrentLevel.FloorNumber + 1))</span>
+                </div>
+            }
+
+            <!-- XP Gems -->
+            @foreach (var gem in Engine.ScrollingDungeon.XpGems)
+            {
+                <div class="world-gem-entity @(gem.IsMagnetized ? "gem-pulled" : "")"
+                     style="left: @(gem.WorldX)px; top: @(gem.WorldY)px;">
+                    <span class="gem-icon">@gem.Icon</span>
+                </div>
+            }
+
+            <!-- Monsters -->
+            @foreach (var m in Engine.ScrollingDungeon.Monsters)
+            {
+                double hpPct = m.MaxHealth > 0 ? (m.CurrentHealth / m.MaxHealth) * 100.0 : 0;
+                <div class="world-monster-entity @(m.IsBoss ? "monster-boss" : "") @(m.IsHit ? "hit-flash" : "")"
+                     style="left: @(m.WorldX)px; top: @(m.WorldY)px;">
+                    
+                    <div class="m-hp-track">
+                        <div class="m-hp-fill" style="width: @(Math.Clamp(hpPct, 0, 100))%;"></div>
+                    </div>
+                    <div class="m-sprite">@m.Icon</div>
+                    <div class="m-name">@m.Name</div>
+                </div>
+            }
+
+            <!-- Wizard Hero Sprite -->
+            <div class="world-hero-entity @(Engine.ScrollingDungeon.Hero.IsInvulnerable ? "hero-invulnerable" : "") @(Engine.ScrollingDungeon.Hero.IsAttacking ? "hero-recoil" : "")"
+                 style="left: @(Engine.ScrollingDungeon.Hero.WorldX)px; top: @(Engine.ScrollingDungeon.Hero.WorldY)px;">
+                
+                <div class="hero-aura-circle"></div>
+                <div class="hero-sprite" style="transform: rotate(@(Engine.ScrollingDungeon.Hero.FacingAngle)deg);">
+                    🧙‍♂️
+                    <div class="wand-muzzle-flash @(Engine.ScrollingDungeon.Hero.IsAttacking ? "active" : "")"></div>
+                </div>
+            </div>
+
+            <!-- Projectiles -->
+            @foreach (var p in Engine.ScrollingDungeon.Projectiles)
+            {
+                <div class="world-projectile-entity proj-element-@p.Element.ToString().ToLowerInvariant()"
+                     style="left: @(p.WorldX)px; top: @(p.WorldY)px;">
+                    <span class="proj-icon">@p.Icon</span>
+                </div>
+            }
+
+            <!-- Impact VFX (Explosions / Arcs) -->
+            @foreach (var imp in Engine.ScrollingDungeon.Impacts)
+            {
+                <div class="world-impact-vfx"
+                     style="left: @(imp.WorldX)px; top: @(imp.WorldY)px;">
+                    <span class="impact-icon">@imp.Icon</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Mobile Virtual Joystick / On-screen WASD Controls -->
+    <div class="virtual-wasd-bar">
+        <span class="controls-hint">Move: [W][A][S][D] or Arrows</span>
+        <div class="dpad-buttons">
+            <button class="dpad-btn up" @onpointerdown="() => Move(0, -1)" @onpointerup="StopMove">▲</button>
+            <div class="dpad-mid-row">
+                <button class="dpad-btn left" @onpointerdown="() => Move(-1, 0)" @onpointerup="StopMove">◀</button>
+                <button class="dpad-btn down" @onpointerdown="() => Move(0, 1)" @onpointerup="StopMove">▼</button>
+                <button class="dpad-btn right" @onpointerdown="() => Move(1, 0)" @onpointerup="StopMove">▶</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- In-Run 3-Card Level Up Draft Modal -->
+    @if (Engine.ScrollingDungeon.IsPausedForDraft && Engine.ScrollingDungeon.CurrentDraftOptions.Any())
+    {
+        <LevelUpDraftModal Options="Engine.ScrollingDungeon.CurrentDraftOptions"
+                           OnSelect="SelectDraftCard" />
+    }
+
+    <!-- Game Over Modal -->
+    @if (Engine.ScrollingDungeon.IsRunOver)
+    {
+        <GameOverModal OnRestart="RestartRun" />
+    }
+</div>
+
+@code {
+    private ElementReference _dungeonContainer;
+    private bool _keyW, _keyA, _keyS, _keyD;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await _dungeonContainer.FocusAsync();
+            }
+            catch { }
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        Engine.ScrollingDungeon.OnStateUpdated += HandleStateUpdate;
+        Engine.ScrollingDungeon.OnLevelUpDraft += HandleLevelUp;
+        Engine.ScrollingDungeon.OnRunEnded += HandleStateUpdate;
+    }
+
+    private void HandleStateUpdate()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleLevelUp(List<DraftOption> options)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void SelectDraftCard(DraftOption option)
+    {
+        Engine.ScrollingDungeon.SelectDraftOption(option);
+    }
+
+    private void RestartRun()
+    {
+        Engine.ScrollingDungeon.StartNewRun(Engine.State);
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        switch (e.Key.ToLowerInvariant())
+        {
+            case "w": case "arrowup": _keyW = true; break;
+            case "a": case "arrowleft": _keyA = true; break;
+            case "s": case "arrowdown": _keyS = true; break;
+            case "d": case "arrowright": _keyD = true; break;
+        }
+        UpdateKeyboardVector();
+    }
+
+    private void HandleKeyUp(KeyboardEventArgs e)
+    {
+        switch (e.Key.ToLowerInvariant())
+        {
+            case "w": case "arrowup": _keyW = false; break;
+            case "a": case "arrowleft": _keyA = false; break;
+            case "s": case "arrowdown": _keyS = false; break;
+            case "d": case "arrowright": _keyD = false; break;
+        }
+        UpdateKeyboardVector();
+    }
+
+    private void UpdateKeyboardVector()
+    {
+        double vx = 0;
+        double vy = 0;
+        if (_keyA) vx -= 1;
+        if (_keyD) vx += 1;
+        if (_keyW) vy -= 1;
+        if (_keyS) vy += 1;
+
+        if (vx != 0 && vy != 0)
+        {
+            vx *= 0.7071;
+            vy *= 0.7071;
+        }
+
+        Engine.ScrollingDungeon.SetMovementInput(vx, vy);
+    }
+
+    private void Move(double vx, double vy)
+    {
+        Engine.ScrollingDungeon.SetMovementInput(vx, vy);
+    }
+
+    private void StopMove()
+    {
+        Engine.ScrollingDungeon.SetMovementInput(0, 0);
+    }
+
+    private string GetBiomeClass() => Engine.ScrollingDungeon.CurrentLevel.Biome switch
+    {
+        DungeonBiome.MossyCatacombs => "biome-catacombs",
+        DungeonBiome.SunkenCrypt => "biome-crypt",
+        DungeonBiome.MagmaCaldera => "biome-magma",
+        DungeonBiome.AstralVault => "biome-astral",
+        _ => "biome-catacombs"
+    };
+
+    public void Dispose()
+    {
+        Engine.ScrollingDungeon.OnStateUpdated -= HandleStateUpdate;
+        Engine.ScrollingDungeon.OnLevelUpDraft -= HandleLevelUp;
+        Engine.ScrollingDungeon.OnRunEnded -= HandleStateUpdate;
+    }
+}

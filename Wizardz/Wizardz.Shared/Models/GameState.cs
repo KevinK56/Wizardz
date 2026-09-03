@@ -34,6 +34,8 @@ public class GameState
     public List<EquipmentItem> Inventory { get; set; } = new();
     public TreasureChest? ActiveChest { get; set; }
 
+    public Dictionary<string, int> MetaSkillLevels { get; set; } = new();
+
     public List<WizardUnit> Wizards { get; set; } = new();
     public List<Upgrade> Upgrades { get; set; } = new();
     public List<Spell> Spells { get; set; } = new();
@@ -242,6 +244,11 @@ public class GameState
                 { EquipmentSlot.Weapon, EquipmentGenerator.CreateStarterWand() }
             },
             Inventory = new(),
+            MetaSkillLevels = new()
+            {
+                { "fireball", 1 },
+                { "arcane_barrage", 1 }
+            },
             Wizards = new List<WizardUnit>
             {
                 new()
