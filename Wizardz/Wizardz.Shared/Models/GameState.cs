@@ -15,6 +15,12 @@ public class GameState
     public DateTime LastSaveTimeUtc { get; set; } = DateTime.UtcNow;
     public DateTime LastTickTimeUtc { get; set; } = DateTime.UtcNow;
 
+    // User Preferences & Settings
+    public int SelectedBuyQuantity { get; set; } = 1;
+    public bool IsBuyMaxSelected { get; set; } = false;
+    public int LocalAutoSaveIntervalMinutes { get; set; } = 2; // Default 2 minutes
+    public int CloudAutoSaveIntervalMinutes { get; set; } = 5; // Default 5 minutes
+
     public List<WizardUnit> Wizards { get; set; } = new();
     public List<Upgrade> Upgrades { get; set; } = new();
     public List<Spell> Spells { get; set; } = new();

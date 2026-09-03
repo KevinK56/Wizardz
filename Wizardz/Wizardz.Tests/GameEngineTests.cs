@@ -189,4 +189,42 @@ public class GameEngineTests
         Assert.Equal(300, state.AstralShards);
         Assert.Equal(1, state.AscensionCount);
     }
+
+    [Fact]
+    public void TestBuyQuantityRememberedAndPersisted()
+    {
+        var storage = new MockSaveStorage();
+        var cloud = new CloudSaveService();
+        var notifier = new MockNotificationService();
+        using var engine = new GameEngine(storage, cloud, notifier);
+
+        Assert.Equal(1, engine.State.SelectedBuyQuantity);
+        Assert.False(engine.State.IsBuyMaxSelected);
+
+        engine.SetBuyQuantity(10, false);
+        Assert.Equal(10, engine.State.SelectedBuyQuantity);
+        Assert.False(engine.State.IsBuyMaxSelected);
+
+        engine.SetBuyQuantity(10, true);
+        Assert.Equal(10, engine.State.SelectedBuyQuantity);
+        Assert.True(engine.State.IsBuyMaxSelected);
+    }
+
+    [Fact]
+    public void TestUpdateAutoSaveSettings()
+    {
+        var storage = new MockSaveStorage();
+        var cloud = new CloudSaveService();
+        var notifier = new MockNotificationService();
+        using var engine = new GameEngine(storage, cloud, notifier);
+
+        // Verify defaults
+        Assert.Equal(2, engine.State.LocalAutoSaveIntervalMinutes);
+        Assert.Equal(5, engine.State.CloudAutoSaveIntervalMinutes);
+
+        // Update settings
+        engine.UpdateAutoSaveSettings(5, 10);
+        Assert.Equal(5, engine.State.LocalAutoSaveIntervalMinutes);
+        Assert.Equal(10, engine.State.CloudAutoSaveIntervalMinutes);
+    }
 }

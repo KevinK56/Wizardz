@@ -9,20 +9,20 @@
             <span class="roster-subtitle">Recruit wizards to generate passive mana</span>
         </div>
         
-        <!-- Multiplier Buttons -->
+        <!-- Multiplier Buttons (Remembered & Persisted) -->
         <div class="multiplier-group">
-            <button class="mult-btn @(_buyQuantity == 1 ? "active" : "")" @onclick="() => SetBuyQuantity(1)">x1</button>
-            <button class="mult-btn @(_buyQuantity == 10 ? "active" : "")" @onclick="() => SetBuyQuantity(10)">x10</button>
-            <button class="mult-btn @(_buyQuantity == 100 ? "active" : "")" @onclick="() => SetBuyQuantity(100)">x100</button>
-            <button class="mult-btn @(_isMax ? "active" : "")" @onclick="SetBuyMax">Max</button>
+            <button class="mult-btn @(!IsMax && BuyQuantity == 1 ? "active" : "")" @onclick="() => SetBuyQuantity(1)">x1</button>
+            <button class="mult-btn @(!IsMax && BuyQuantity == 10 ? "active" : "")" @onclick="() => SetBuyQuantity(10)">x10</button>
+            <button class="mult-btn @(!IsMax && BuyQuantity == 100 ? "active" : "")" @onclick="() => SetBuyQuantity(100)">x100</button>
+            <button class="mult-btn @(IsMax ? "active" : "")" @onclick="SetBuyMax">Max</button>
         </div>
     </div>
 
     <div class="wizard-cards-list">
         @foreach (var wizard in Engine.State.Wizards)
         {
-            int qty = _isMax ? Math.Max(1, wizard.GetMaxAffordable(Engine.State.Mana)) : _buyQuantity;
-            double cost = _isMax ? (qty > 0 ? wizard.GetCostForNext(qty) : wizard.GetCostForNext(1)) : wizard.GetCostForNext(_buyQuantity);
+            int qty = IsMax ? Math.Max(1, wizard.GetMaxAffordable(Engine.State.Mana)) : BuyQuantity;
+            double cost = IsMax ? (qty > 0 ? wizard.GetCostForNext(qty) : wizard.GetCostForNext(1)) : wizard.GetCostForNext(BuyQuantity);
             bool canAfford = Engine.State.Mana >= cost;
             double unitMult = Engine.State.GetUnitMultiplier(wizard.Id);
             double totalUnitMps = wizard.GetTotalMps(unitMult, Engine.State.GlobalMpsMultiplier);
@@ -49,7 +49,7 @@
                     <button class="hire-btn @(canAfford ? "btn-ready" : "btn-disabled")"
                             disabled="@(!canAfford)"
                             @onclick="() => BuyWizard(wizard.Id)">
-                        <div class="btn-label">Hire @(_isMax ? $"({qty})" : $"x{_buyQuantity}")</div>
+                        <div class="btn-label">Hire @(IsMax ? $"({qty})" : $"x{BuyQuantity}")</div>
                         <div class="btn-cost">🔮 @GameEngine.FormatNumber(cost)</div>
                     </button>
                 </div>
@@ -59,8 +59,8 @@
 </div>
 
 @code {
-    private int _buyQuantity = 1;
-    private bool _isMax = false;
+    private int BuyQuantity => Engine.State.SelectedBuyQuantity <= 0 ? 1 : Engine.State.SelectedBuyQuantity;
+    private bool IsMax => Engine.State.IsBuyMaxSelected;
 
     protected override void OnInitialized()
     {
@@ -75,24 +75,23 @@
 
     private void SetBuyQuantity(int qty)
     {
-        _buyQuantity = qty;
-        _isMax = false;
+        Engine.SetBuyQuantity(qty, false);
     }
 
     private void SetBuyMax()
     {
-        _isMax = true;
+        Engine.SetBuyQuantity(BuyQuantity, true);
     }
 
     private void BuyWizard(string unitId)
     {
-        if (_isMax)
+        if (IsMax)
         {
             Engine.BuyMaxWizard(unitId);
         }
         else
         {
-            Engine.BuyWizard(unitId, _buyQuantity);
+            Engine.BuyWizard(unitId, BuyQuantity);
         }
     }
 

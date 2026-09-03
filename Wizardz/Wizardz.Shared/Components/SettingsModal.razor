@@ -1,0 +1,351 @@
+@inject GameEngine Engine
+@inject ICloudSaveService CloudService
+@inject IJSRuntime JSRuntime
+
+<div class="modal-backdrop" @onclick="Close">
+    <div class="modal-box settings-modal" @onclick:stopPropagation>
+        <div class="modal-header">
+            <div class="header-title">
+                <h3>⚙️ Arcane Spire Settings</h3>
+                <span class="header-sub">Auto-Save, Cloud Sync, and Guild Management</span>
+            </div>
+            <button class="btn-close-modal" @onclick="Close">✕</button>
+        </div>
+
+        <div class="modal-body">
+            <!-- 1. Auto-Save Intervals Configuration -->
+            <section class="settings-section">
+                <h4>⏱️ Auto-Save Intervals</h4>
+                <p class="section-sub">Configure how frequently your progress is preserved automatically.</p>
+
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label class="setting-label">📱 Local Device Auto-Save</label>
+                        <select class="setting-select" value="@_localMinutes" @onchange="OnLocalIntervalChanged">
+                            <option value="0.5">Every 30 seconds</option>
+                            <option value="1">Every 1 minute</option>
+                            <option value="2">Every 2 minutes (Default)</option>
+                            <option value="5">Every 5 minutes</option>
+                            <option value="10">Every 10 minutes</option>
+                            <option value="0">Disabled</option>
+                        </select>
+                        <span class="setting-hint">Saves directly to this device storage</span>
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="setting-label">☁️ Cloud Account Auto-Save</label>
+                        <select class="setting-select" value="@_cloudMinutes" @onchange="OnCloudIntervalChanged">
+                            <option value="1">Every 1 minute</option>
+                            <option value="2">Every 2 minutes</option>
+                            <option value="5">Every 5 minutes (Default)</option>
+                            <option value="10">Every 10 minutes</option>
+                            <option value="15">Every 15 minutes</option>
+                            <option value="0">Disabled</option>
+                        </select>
+                        <span class="setting-hint">Syncs with connected Google Drive or Apple iCloud</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Cloud Save & Sync Section -->
+            <section class="settings-section">
+                <h4>☁️ Cloud Save & Cross-Platform Sync</h4>
+                <div class="provider-cards">
+                    <div class="provider-card @(CloudService.ActiveProvider == CloudProviderType.GoogleDrive ? "selected" : "")"
+                         @onclick="() => SelectProvider(CloudProviderType.GoogleDrive)">
+                        <div class="provider-icon">📁</div>
+                        <div class="provider-name">Google Drive</div>
+                        <div class="provider-sub">Android & Windows</div>
+                    </div>
+                    <div class="provider-card @(CloudService.ActiveProvider == CloudProviderType.AppleICloud ? "selected" : "")"
+                         @onclick="() => SelectProvider(CloudProviderType.AppleICloud)">
+                        <div class="provider-icon">🍏</div>
+                        <div class="provider-name">Apple iCloud</div>
+                        <div class="provider-sub">iOS & Mac</div>
+                    </div>
+                </div>
+
+                <div class="account-status-bar">
+                    @if (CloudService.IsConnected)
+                    {
+                        <div class="connected-row">
+                            <span class="status-dot green"></span>
+                            <span class="account-email">Connected: <strong>@CloudService.ConnectedAccountEmail</strong></span>
+                            <button class="btn-disconnect" @onclick="Disconnect">Disconnect</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="connect-form">
+                            <input type="email" class="cloud-input" placeholder="Enter account email (e.g. archmage@gmail.com)" @bind="_inputEmail" />
+                            <button class="btn-connect" @onclick="Connect">Connect @CloudService.ActiveProvider</button>
+                        </div>
+                    }
+                </div>
+
+                @if (CloudService.IsConnected)
+                {
+                    <div class="sync-actions-row">
+                        <button class="btn-sync-now" @onclick="SyncCloud" disabled="@_isSyncing">
+                            @(_isSyncing ? "⏳ Syncing..." : "🔄 Sync Now")
+                        </button>
+                        <button class="btn-force-upload" @onclick="ForceUpload" disabled="@_isSyncing">
+                            ⬆️ Force Cloud Backup
+                        </button>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_syncMessage))
+                {
+                    <div class="sync-status-msg @_syncMsgClass">
+                        @_syncMessage
+                    </div>
+                }
+
+                <!-- Conflict Resolution Modal / Section -->
+                @if (_pendingConflictState != null)
+                {
+                    <div class="conflict-resolution-box">
+                        <h5>⚠️ Cloud Conflict Detected</h5>
+                        <p>Your Cloud save has different progress than your Local device:</p>
+                        
+                        <div class="conflict-comparison">
+                            <div class="comparison-side local">
+                                <h6>📱 This Device</h6>
+                                <div>Saved: @Engine.State.LastSaveTimeUtc.ToLocalTime().ToString("g")</div>
+                                <div>Lifetime Mana: @GameEngine.FormatNumber(Engine.State.LifetimeMana)</div>
+                                <div>Wizards: @Engine.State.Wizards.Sum(w => w.Count)</div>
+                                <button class="btn-conflict-pick" @onclick="KeepLocal">Keep Local Device Save</button>
+                            </div>
+
+                            <div class="comparison-side cloud">
+                                <h6>☁️ Cloud Backup</h6>
+                                <div>Saved: @_pendingConflictState.LastSaveTimeUtc.ToLocalTime().ToString("g")</div>
+                                <div>Lifetime Mana: @GameEngine.FormatNumber(_pendingConflictState.LifetimeMana)</div>
+                                <div>Wizards: @_pendingConflictState.Wizards.Sum(w => w.Count)</div>
+                                <button class="btn-conflict-pick primary" @onclick="KeepCloud">Keep Cloud Save</button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </section>
+
+            <!-- 3. Manual Cross-Device Save Code -->
+            <section class="settings-section">
+                <h4>📋 Manual Save Code (Cross-Device Backup)</h4>
+                <div class="export-controls">
+                    <button class="btn-export-code" @onclick="ExportCode">Generate & Copy Code</button>
+                    @if (_copiedToClipboard)
+                    {
+                        <span class="copied-badge">✓ Copied to clipboard!</span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(_exportCode))
+                {
+                    <textarea class="code-box" readonly rows="3" @bind="_exportCode"></textarea>
+                }
+
+                <div class="import-group">
+                    <h5>Restore from Code</h5>
+                    <textarea class="code-box" rows="2" placeholder="Paste exported save code here..." @bind="_importCode"></textarea>
+                    <button class="btn-import-code" @onclick="ImportCode" disabled="@string.IsNullOrWhiteSpace(_importCode)">
+                        📥 Restore Game from Code
+                    </button>
+                </div>
+            </section>
+
+            <!-- 4. Danger Zone: Reset Game with Warning -->
+            <section class="settings-section danger-zone">
+                <h4>⚠️ Danger Zone</h4>
+                <p class="section-sub">Permanently erase local save data and reset to beginning.</p>
+
+                @if (!_showResetConfirmation)
+                {
+                    <button class="btn-danger-reset" @onclick="() => _showResetConfirmation = true">
+                        🗑️ Reset Game Progress...
+                    </button>
+                }
+                else
+                {
+                    <div class="reset-confirm-box">
+                        <div class="confirm-warning-title">⚠️ Are you absolutely sure?</div>
+                        <p class="confirm-warning-text">
+                            This will permanently delete all your hired wizards, unspent mana, researches, and local save data.
+                            This action cannot be undone!
+                        </p>
+                        <div class="confirm-actions">
+                            <button class="btn-confirm-delete" @onclick="ConfirmReset">Yes, Erase Everything</button>
+                            <button class="btn-cancel-delete" @onclick="() => _showResetConfirmation = false">Cancel</button>
+                        </div>
+                    </div>
+                }
+            </section>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private int _localMinutes;
+    private int _cloudMinutes;
+
+    private string _inputEmail = "archmage@wizardz-guild.com";
+    private string _syncMessage = string.Empty;
+    private string _syncMsgClass = string.Empty;
+    private bool _isSyncing = false;
+    private GameState? _pendingConflictState = null;
+
+    private string _exportCode = string.Empty;
+    private string _importCode = string.Empty;
+    private bool _copiedToClipboard = false;
+    private bool _showResetConfirmation = false;
+
+    protected override void OnInitialized()
+    {
+        _localMinutes = Engine.State.LocalAutoSaveIntervalMinutes;
+        _cloudMinutes = Engine.State.CloudAutoSaveIntervalMinutes;
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private void OnLocalIntervalChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int val))
+        {
+            _localMinutes = val;
+            Engine.UpdateAutoSaveSettings(_localMinutes, _cloudMinutes);
+        }
+    }
+
+    private void OnCloudIntervalChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int val))
+        {
+            _cloudMinutes = val;
+            Engine.UpdateAutoSaveSettings(_localMinutes, _cloudMinutes);
+        }
+    }
+
+    private void SelectProvider(CloudProviderType provider)
+    {
+        if (CloudService.IsConnected && CloudService.ActiveProvider != provider)
+        {
+            CloudService.DisconnectCloudAccountAsync();
+        }
+        CloudService.ConnectCloudAccountAsync(provider, _inputEmail);
+    }
+
+    private async Task Connect()
+    {
+        await CloudService.ConnectCloudAccountAsync(CloudService.ActiveProvider, _inputEmail);
+        _syncMessage = $"Connected to {CloudService.ActiveProvider} as {CloudService.ConnectedAccountEmail}";
+        _syncMsgClass = "success";
+    }
+
+    private async Task Disconnect()
+    {
+        await CloudService.DisconnectCloudAccountAsync();
+        _pendingConflictState = null;
+        _syncMessage = "Cloud account disconnected.";
+        _syncMsgClass = "info";
+    }
+
+    private async Task SyncCloud()
+    {
+        _isSyncing = true;
+        _syncMessage = "Contacting cloud repository...";
+        _syncMsgClass = "info";
+
+        var result = await CloudService.SyncAsync(Engine.State);
+        _isSyncing = false;
+
+        if (result.Status == CloudSyncStatus.CloudNewerConflict)
+        {
+            _pendingConflictState = result.CloudState;
+            _syncMessage = result.Message;
+            _syncMsgClass = "warning";
+        }
+        else
+        {
+            _syncMessage = result.Message;
+            _syncMsgClass = result.Status == CloudSyncStatus.Error ? "error" : "success";
+        }
+    }
+
+    private async Task ForceUpload()
+    {
+        _isSyncing = true;
+        bool ok = await CloudService.ForceUploadAsync(Engine.State);
+        _isSyncing = false;
+        if (ok)
+        {
+            _syncMessage = "Forced upload complete! Local save is now current in cloud.";
+            _syncMsgClass = "success";
+            _pendingConflictState = null;
+        }
+        else
+        {
+            _syncMessage = "Force upload failed.";
+            _syncMsgClass = "error";
+        }
+    }
+
+    private async Task KeepLocal()
+    {
+        await CloudService.ForceUploadAsync(Engine.State);
+        _pendingConflictState = null;
+        _syncMessage = "Resolved conflict: Local save uploaded to cloud.";
+        _syncMsgClass = "success";
+    }
+
+    private async Task KeepCloud()
+    {
+        if (_pendingConflictState != null)
+        {
+            await Engine.ApplyCloudStateAsync(_pendingConflictState);
+            _pendingConflictState = null;
+            _syncMessage = "Resolved conflict: Cloud save loaded onto this device!";
+            _syncMsgClass = "success";
+        }
+    }
+
+    private async Task ExportCode()
+    {
+        _exportCode = Engine.ExportSaveString();
+        _copiedToClipboard = true;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", _exportCode);
+        }
+        catch { }
+    }
+
+    private async Task ImportCode()
+    {
+        var (ok, msg) = await Engine.ImportSaveStringAsync(_importCode);
+        if (ok)
+        {
+            _syncMessage = "Save restored from code!";
+            _syncMsgClass = "success";
+            _importCode = string.Empty;
+        }
+        else
+        {
+            _syncMessage = $"Import failed: {msg}";
+            _syncMsgClass = "error";
+        }
+    }
+
+    private async Task ConfirmReset()
+    {
+        _showResetConfirmation = false;
+        await Engine.ResetGameAsync();
+        await Close();
+    }
+}

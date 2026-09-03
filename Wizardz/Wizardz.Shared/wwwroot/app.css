@@ -148,16 +148,48 @@ body {
     border-color: var(--primary-purple);
 }
 
-/* Toast Notifications */
-.notification-banner {
-    background: linear-gradient(90deg, #7c3aed, #4f46e5);
-    color: white;
-    padding: 0.4rem 1rem;
-    text-align: center;
+/* Small Floating Notification Toast Bubble */
+.toast-bubble-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    pointer-events: none;
+    animation: toastPopIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-bubble {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.1rem;
+    background: rgba(26, 21, 48, 0.95);
+    border: 1px solid var(--primary-purple);
+    border-radius: 9999px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px var(--primary-glow);
+    color: var(--text-main);
     font-size: 0.85rem;
-    font-weight: 500;
-    box-shadow: 0 2px 10px rgba(124, 58, 237, 0.3);
-    animation: fadeIn 0.3s ease;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+}
+
+.bubble-icon {
+    font-size: 1rem;
+}
+
+.bubble-text {
+    line-height: 1.2;
+}
+
+@keyframes toastPopIn {
+    0% {
+        opacity: 0;
+        transform: translateY(16px) scale(0.92);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 /* Game Main Stage Layout */
@@ -1188,4 +1220,134 @@ body {
     .resources-bar {
         gap: 0.5rem;
     }
+}
+
+/* Settings Modal & Danger Zone */
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-arcane);
+}
+
+.settings-section h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-main);
+}
+
+.section-sub {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.settings-grid {
+    display: flex;
+    gap: 1rem;
+}
+
+.setting-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.setting-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--mana-cyan);
+}
+
+.setting-select {
+    background: var(--bg-card);
+    border: 1px solid var(--border-arcane);
+    color: white;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.setting-select:focus {
+    outline: none;
+    border-color: var(--primary-purple);
+}
+
+.setting-hint {
+    font-size: 0.7rem;
+    color: var(--text-subtle);
+}
+
+.settings-section.danger-zone {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.btn-danger-reset {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #f87171;
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s;
+}
+
+.btn-danger-reset:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: #ef4444;
+}
+
+.reset-confirm-box {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    border-radius: 8px;
+    padding: 0.85rem;
+}
+
+.confirm-warning-title {
+    color: #f87171;
+    font-weight: 800;
+    font-size: 0.9rem;
+}
+
+.confirm-warning-text {
+    font-size: 0.75rem;
+    color: #fca5a5;
+    margin: 0.4rem 0 0.75rem 0;
+    line-height: 1.3;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-confirm-delete {
+    flex: 1;
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.btn-cancel-delete {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border-arcane);
+    color: white;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
 }

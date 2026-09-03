@@ -11,8 +11,8 @@ public class GameEngine : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private Task? _timerTask;
 
-    private double _autoSaveCounterSeconds = 0;
-    private const double AutoSaveIntervalSeconds = 10.0;
+    private double _localAutoSaveCounterSeconds = 0;
+    private double _cloudAutoSaveCounterSeconds = 0;
 
     public GameState State { get; private set; }
     public bool IsInitialized { get; private set; } = false;
@@ -96,12 +96,26 @@ public class GameEngine : IDisposable
 
                 Tick(deltaSeconds);
 
-                // Auto save
-                _autoSaveCounterSeconds += deltaSeconds;
-                if (_autoSaveCounterSeconds >= AutoSaveIntervalSeconds)
+                // Local Auto save (default 2 minutes or user configured)
+                if (State.LocalAutoSaveIntervalMinutes > 0)
                 {
-                    _autoSaveCounterSeconds = 0;
-                    _ = SaveAsync();
+                    _localAutoSaveCounterSeconds += deltaSeconds;
+                    if (_localAutoSaveCounterSeconds >= State.LocalAutoSaveIntervalMinutes * 60)
+                    {
+                        _localAutoSaveCounterSeconds = 0;
+                        _ = SaveAsync();
+                    }
+                }
+
+                // Cloud Auto save (default 5 minutes or user configured)
+                if (State.CloudAutoSaveIntervalMinutes > 0 && _cloudSaveService.IsConnected)
+                {
+                    _cloudAutoSaveCounterSeconds += deltaSeconds;
+                    if (_cloudAutoSaveCounterSeconds >= State.CloudAutoSaveIntervalMinutes * 60)
+                    {
+                        _cloudAutoSaveCounterSeconds = 0;
+                        _ = AutoSyncCloudAsync();
+                    }
                 }
 
                 OnStateChanged?.Invoke();
@@ -112,6 +126,22 @@ public class GameEngine : IDisposable
         {
             // Expected on dispose
         }
+    }
+
+    private async Task AutoSyncCloudAsync()
+    {
+        try
+        {
+            if (_cloudSaveService.IsConnected)
+            {
+                var res = await _cloudSaveService.SyncAsync(State);
+                if (res.Status == CloudSyncStatus.LocalUploadedToCloud)
+                {
+                    OnNotification?.Invoke("Cloud auto-save completed.");
+                }
+            }
+        }
+        catch { }
     }
 
     public void Tick(double deltaSeconds)
@@ -256,6 +286,25 @@ public class GameEngine : IDisposable
         await _saveStorage.ClearStateAsync();
         State = GameState.CreateDefault();
         OnNotification?.Invoke("Game has been reset.");
+        OnStateChanged?.Invoke();
+    }
+
+    public void SetBuyQuantity(int quantity, bool isMax)
+    {
+        State.SelectedBuyQuantity = quantity;
+        State.IsBuyMaxSelected = isMax;
+        OnStateChanged?.Invoke();
+        _ = _notificationService.NotifyAffordabilityChangedAsync();
+    }
+
+    public void UpdateAutoSaveSettings(int localMinutes, int cloudMinutes)
+    {
+        State.LocalAutoSaveIntervalMinutes = localMinutes;
+        State.CloudAutoSaveIntervalMinutes = cloudMinutes;
+        _localAutoSaveCounterSeconds = 0;
+        _cloudAutoSaveCounterSeconds = 0;
+        _ = SaveAsync();
+        OnNotification?.Invoke("Auto-save configuration updated.");
         OnStateChanged?.Invoke();
     }
 

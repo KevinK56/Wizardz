@@ -45,25 +45,14 @@
         </div>
 
         <div class="header-actions">
-            <button class="btn-icon-action" @onclick="() => _showCloudModal = true" title="Cloud Save & Sync">
-                ☁️ Cloud
-            </button>
             <button class="btn-icon-action" @onclick="ManualSave" title="Save Game">
                 💾 Save
             </button>
-            <button class="btn-icon-action" @onclick="PromptReset" title="Reset Progress">
-                ⚙️
+            <button class="btn-icon-action" @onclick="() => _showSettingsModal = true" title="Settings">
+                ⚙️ Settings
             </button>
         </div>
     </header>
-
-    <!-- Notification Banner -->
-    @if (!string.IsNullOrEmpty(_currentToast))
-    {
-        <div class="notification-banner">
-            @_currentToast
-        </div>
-    }
 
     <!-- Main Game Workspace -->
     <div class="game-main-content">
@@ -104,10 +93,21 @@
         </aside>
     </div>
 
-    <!-- Modals -->
-    @if (_showCloudModal)
+    <!-- Small Floating Notification Toast Bubble -->
+    @if (!string.IsNullOrEmpty(_currentToast))
     {
-        <CloudSaveModal OnClose="() => _showCloudModal = false" />
+        <div class="toast-bubble-container">
+            <div class="toast-bubble">
+                <span class="bubble-icon">✨</span>
+                <span class="bubble-text">@_currentToast</span>
+            </div>
+        </div>
+    }
+
+    <!-- Modals -->
+    @if (_showSettingsModal)
+    {
+        <SettingsModal OnClose="() => _showSettingsModal = false" />
     }
 
     <OfflineGainsModal />
@@ -115,7 +115,7 @@
 
 @code {
     private string _activeTab = "roster";
-    private bool _showCloudModal = false;
+    private bool _showSettingsModal = false;
     private string? _currentToast = null;
     private CancellationTokenSource? _toastCts;
 
@@ -139,7 +139,7 @@
         _currentToast = message;
         InvokeAsync(StateHasChanged);
 
-        _ = Task.Delay(3500, _toastCts.Token).ContinueWith(t =>
+        _ = Task.Delay(2500, _toastCts.Token).ContinueWith(t =>
         {
             if (!t.IsCanceled)
             {
@@ -153,11 +153,6 @@
     {
         await Engine.SaveAsync();
         ShowToast("Game saved successfully!");
-    }
-
-    private async Task PromptReset()
-    {
-        await Engine.ResetGameAsync();
     }
 
     private void HandleAscended()
