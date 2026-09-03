@@ -1,4 +1,6 @@
 @inject GameEngine Engine
+@inject IGameNotificationService Notifier
+@implements IDisposable
 
 <div class="roster-panel">
     <div class="roster-header">
@@ -60,6 +62,17 @@
     private int _buyQuantity = 1;
     private bool _isMax = false;
 
+    protected override void OnInitialized()
+    {
+        Engine.OnStateChanged += HandleStateChanged;
+        Notifier.OnAffordabilityChanged += HandleStateChanged;
+    }
+
+    private void HandleStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
     private void SetBuyQuantity(int qty)
     {
         _buyQuantity = qty;
@@ -81,5 +94,11 @@
         {
             Engine.BuyWizard(unitId, _buyQuantity);
         }
+    }
+
+    public void Dispose()
+    {
+        Engine.OnStateChanged -= HandleStateChanged;
+        Notifier.OnAffordabilityChanged -= HandleStateChanged;
     }
 }

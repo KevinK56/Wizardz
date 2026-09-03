@@ -1,4 +1,6 @@
 @inject GameEngine Engine
+@inject IGameNotificationService Notifier
+@implements IDisposable
 
 <div class="upgrades-panel">
     <div class="panel-header">
@@ -47,8 +49,25 @@
 </div>
 
 @code {
+    protected override void OnInitialized()
+    {
+        Engine.OnStateChanged += HandleStateChanged;
+        Notifier.OnAffordabilityChanged += HandleStateChanged;
+    }
+
+    private void HandleStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
     private void BuyUpgrade(string upgradeId)
     {
         Engine.BuyUpgrade(upgradeId);
+    }
+
+    public void Dispose()
+    {
+        Engine.OnStateChanged -= HandleStateChanged;
+        Notifier.OnAffordabilityChanged -= HandleStateChanged;
     }
 }

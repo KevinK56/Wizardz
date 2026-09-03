@@ -25,6 +25,29 @@ public class MockSaveStorage : ISaveStorage
     }
 }
 
+public class MockNotificationService : IGameNotificationService
+{
+    public event Action? OnAffordabilityChanged;
+    public event Action<string>? OnBroadcastReceived;
+    public bool IsConnected => true;
+    public int AffordabilityNotifyCount { get; private set; } = 0;
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task NotifyAffordabilityChangedAsync()
+    {
+        AffordabilityNotifyCount++;
+        OnAffordabilityChanged?.Invoke();
+        return Task.CompletedTask;
+    }
+
+    public Task BroadcastStateAsync(string message)
+    {
+        OnBroadcastReceived?.Invoke(message);
+        return Task.CompletedTask;
+    }
+}
+
 public class GameEngineTests
 {
     [Fact]
@@ -32,7 +55,8 @@ public class GameEngineTests
     {
         var storage = new MockSaveStorage();
         var cloud = new CloudSaveService();
-        using var engine = new GameEngine(storage, cloud);
+        var notifier = new MockNotificationService();
+        using var engine = new GameEngine(storage, cloud, notifier);
 
         Assert.Equal(0, engine.State.Mana);
         Assert.Equal(0, engine.State.CurrentMps);
@@ -42,17 +66,23 @@ public class GameEngineTests
     }
 
     [Fact]
-    public void TestClickOrb_GeneratesMana()
+    public void TestClickOrb_GeneratesManaAndTriggersAffordabilityNotification()
     {
         var storage = new MockSaveStorage();
         var cloud = new CloudSaveService();
-        using var engine = new GameEngine(storage, cloud);
+        var notifier = new MockNotificationService();
+        using var engine = new GameEngine(storage, cloud, notifier);
+
+        bool notified = false;
+        notifier.OnAffordabilityChanged += () => notified = true;
 
         double initialMana = engine.State.Mana;
         engine.ClickFocusOrb();
 
         Assert.True(engine.State.Mana > initialMana);
         Assert.Equal(1, engine.State.TotalClicks);
+        Assert.True(notified);
+        Assert.True(notifier.AffordabilityNotifyCount > 0);
     }
 
     [Fact]
@@ -60,7 +90,8 @@ public class GameEngineTests
     {
         var storage = new MockSaveStorage();
         var cloud = new CloudSaveService();
-        using var engine = new GameEngine(storage, cloud);
+        var notifier = new MockNotificationService();
+        using var engine = new GameEngine(storage, cloud, notifier);
 
         // Give player enough mana to buy 1 novice
         engine.State.Mana = 100;
@@ -126,7 +157,8 @@ public class GameEngineTests
     {
         var storage = new MockSaveStorage();
         var cloud = new CloudSaveService();
-        using var engine = new GameEngine(storage, cloud);
+        var notifier = new MockNotificationService();
+        using var engine = new GameEngine(storage, cloud, notifier);
 
         engine.State.Mana = 500;
         var surge = engine.State.Spells.First(s => s.Id == "arcane_surge");

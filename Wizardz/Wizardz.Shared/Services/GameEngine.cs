@@ -6,6 +6,7 @@ public class GameEngine : IDisposable
 {
     private readonly ISaveStorage _saveStorage;
     private readonly ICloudSaveService _cloudSaveService;
+    private readonly IGameNotificationService _notificationService;
     private readonly PeriodicTimer _tickTimer;
     private readonly CancellationTokenSource _cts = new();
     private Task? _timerTask;
@@ -22,10 +23,11 @@ public class GameEngine : IDisposable
     public event Action<string>? OnNotification;
     public event Action<double, TimeSpan>? OnOfflineGainsCalculated;
 
-    public GameEngine(ISaveStorage saveStorage, ICloudSaveService cloudSaveService)
+    public GameEngine(ISaveStorage saveStorage, ICloudSaveService cloudSaveService, IGameNotificationService notificationService)
     {
         _saveStorage = saveStorage;
         _cloudSaveService = cloudSaveService;
+        _notificationService = notificationService;
         State = GameState.CreateDefault();
         _tickTimer = new PeriodicTimer(TimeSpan.FromMilliseconds(100)); // 10 ticks per sec
     }
@@ -33,6 +35,8 @@ public class GameEngine : IDisposable
     public async Task InitializeAsync()
     {
         if (IsInitialized) return;
+
+        await _notificationService.InitializeAsync();
 
         // Load persisted state
         var loaded = await _saveStorage.LoadStateAsync();
@@ -101,6 +105,7 @@ public class GameEngine : IDisposable
                 }
 
                 OnStateChanged?.Invoke();
+                _ = _notificationService.NotifyAffordabilityChangedAsync();
             }
         }
         catch (OperationCanceledException)
@@ -138,6 +143,7 @@ public class GameEngine : IDisposable
 
         OnManaClicked?.Invoke(gain);
         OnStateChanged?.Invoke();
+        _ = _notificationService.NotifyAffordabilityChangedAsync();
     }
 
     public bool BuyWizard(string unitId, int quantity = 1)
@@ -151,6 +157,7 @@ public class GameEngine : IDisposable
             State.Mana -= cost;
             unit.Count += quantity;
             OnStateChanged?.Invoke();
+            _ = _notificationService.NotifyAffordabilityChangedAsync();
             return true;
         }
         return false;
@@ -181,6 +188,7 @@ public class GameEngine : IDisposable
 
             OnNotification?.Invoke($"Researched: {upg.Name}!");
             OnStateChanged?.Invoke();
+            _ = _notificationService.NotifyAffordabilityChangedAsync();
             return true;
         }
         return false;
@@ -221,6 +229,7 @@ public class GameEngine : IDisposable
         }
 
         OnStateChanged?.Invoke();
+        _ = _notificationService.NotifyAffordabilityChangedAsync();
         return true;
     }
 
@@ -233,6 +242,7 @@ public class GameEngine : IDisposable
             _ = SaveAsync();
             OnNotification?.Invoke($"Ascension Complete! Gained {shards:N0} Astral Shards!");
             OnStateChanged?.Invoke();
+            _ = _notificationService.NotifyAffordabilityChangedAsync();
         }
     }
 

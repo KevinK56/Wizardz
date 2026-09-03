@@ -1,4 +1,6 @@
 @inject GameEngine Engine
+@inject IGameNotificationService Notifier
+@implements IDisposable
 
 <div class="spellbook-bar">
     <div class="spellbook-header">
@@ -50,8 +52,25 @@
 </div>
 
 @code {
+    protected override void OnInitialized()
+    {
+        Engine.OnStateChanged += HandleStateChanged;
+        Notifier.OnAffordabilityChanged += HandleStateChanged;
+    }
+
+    private void HandleStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
     private void CastSpell(string spellId)
     {
         Engine.CastSpell(spellId);
+    }
+
+    public void Dispose()
+    {
+        Engine.OnStateChanged -= HandleStateChanged;
+        Notifier.OnAffordabilityChanged -= HandleStateChanged;
     }
 }

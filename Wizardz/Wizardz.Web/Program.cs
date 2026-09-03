@@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
+builder.Services.AddSignalR();
 builder.Services.AddWizardzGame();
 
 var app = builder.Build();
@@ -35,5 +36,7 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(
         typeof(Wizardz.Shared._Imports).Assembly,
         typeof(Wizardz.Web.Client._Imports).Assembly);
+
+app.MapHub<Wizardz.Web.Hubs.GameHub>("/hubs/game");
 
 app.Run();

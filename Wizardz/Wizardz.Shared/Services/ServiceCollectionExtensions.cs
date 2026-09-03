@@ -8,6 +8,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<ISaveStorage, LocalSaveStorage>();
         services.AddScoped<ICloudSaveService, CloudSaveService>();
+        services.AddScoped<IGameNotificationService, SignalRNotificationService>();
         services.AddScoped<GameEngine>();
         return services;
     }
