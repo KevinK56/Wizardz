@@ -2,11 +2,11 @@ namespace Wizardz.Shared.Models;
 
 public enum SkillBranch
 {
-    Pyromancy,      // Fire: explosive damage, burns, meteor
-    Electromancy,   // Lightning: chain arcs, speed, stun
-    Cryomancy,      // Frost: piercing shards, freeze, blizzard
-    ArcaneMastery,  // Arcane: homing darts, spell echo, cooldown
-    Vitality        // Hero: max HP, move speed, magnet radius
+    Pyromancy,      // The Phoenix
+    Electromancy,   // The Thunder Drake
+    Cryomancy,      // The Frost Serpent
+    ArcaneMastery,  // The Cosmic Eye
+    Vitality        // The Iron Colossus
 }
 
 public class SkillNode
@@ -27,6 +27,11 @@ public class SkillNode
     public string? AssociatedSpellId { get; set; }
     public double StatBonusPerLevel { get; set; } = 0;
 
+    // Constellation Map 2D Coordinates (0 to 1000 scale)
+    public double ConstellationX { get; set; } = 500;
+    public double ConstellationY { get; set; } = 500;
+    public bool IsMajorStar { get; set; } = false; // Keystones vs minor attribute stars
+
     public double GetCostForNextLevel()
     {
         if (Level >= MaxLevel) return double.PositiveInfinity;
@@ -34,4 +39,11 @@ public class SkillNode
     }
 
     public bool IsUnlocked => Level > 0;
+}
+
+public class ConstellationLine
+{
+    public string FromNodeId { get; set; } = string.Empty;
+    public string ToNodeId { get; set; } = string.Empty;
+    public SkillBranch Branch { get; set; }
 }

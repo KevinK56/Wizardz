@@ -26,6 +26,9 @@
         </div>
 
         <div class="gameover-actions">
+            <button class="btn-gameover-constellation" @onclick="GoToConstellation">
+                🌌 Open Constellations
+            </button>
             <button class="btn-gameover-restart" @onclick="Restart">
                 ⚔️ Play Again
             </button>
@@ -37,8 +40,16 @@
     [Parameter]
     public EventCallback OnRestart { get; set; }
 
+    [Parameter]
+    public EventCallback OnVisitConstellation { get; set; }
+
     private async Task Restart()
     {
         await OnRestart.InvokeAsync();
+    }
+
+    private async Task GoToConstellation()
+    {
+        await OnVisitConstellation.InvokeAsync();
     }
 }

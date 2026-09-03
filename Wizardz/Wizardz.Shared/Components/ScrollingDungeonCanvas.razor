@@ -76,7 +76,10 @@
             {
                 <div class="world-gem-entity @(gem.IsMagnetized ? "gem-pulled" : "")"
                      style="left: @(gem.WorldX)px; top: @(gem.WorldY)px;">
-                    <span class="gem-icon">@gem.Icon</span>
+                    <svg viewBox="0 0 16 16" width="18" height="18" class="pixel-gem-svg">
+                        <polygon points="8,1 15,6 8,15 1,6" fill="#38bdf8" stroke="#bae6fd" stroke-width="1.5" />
+                        <polygon points="8,1 12,6 8,13 4,6" fill="#0284c7" opacity="0.6" />
+                    </svg>
                 </div>
             }
 
@@ -90,7 +93,21 @@
                     <div class="m-hp-track">
                         <div class="m-hp-fill" style="width: @(Math.Clamp(hpPct, 0, 100))%;"></div>
                     </div>
-                    <div class="m-sprite">@m.Icon</div>
+                    
+                    @if (m.IsBoss)
+                    {
+                        <div class="boss-pixel-sprite">
+                            <svg viewBox="0 0 32 32" width="56" height="56">
+                                <circle cx="16" cy="16" r="14" fill="#450a0a" stroke="#dc2626" stroke-width="2" />
+                                <text x="16" y="24" font-size="20" text-anchor="middle">@m.Icon</text>
+                            </svg>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="m-sprite">@m.Icon</div>
+                    }
+                    
                     <div class="m-name">@m.Name</div>
                 </div>
             }
@@ -100,8 +117,28 @@
                  style="left: @(Engine.ScrollingDungeon.Hero.WorldX)px; top: @(Engine.ScrollingDungeon.Hero.WorldY)px;">
                 
                 <div class="hero-aura-circle"></div>
-                <div class="hero-sprite" style="transform: rotate(@(Engine.ScrollingDungeon.Hero.FacingAngle)deg);">
-                    🧙‍♂️
+                <div class="hero-pixel-character" style="transform: rotate(@(Engine.ScrollingDungeon.Hero.FacingAngle)deg);">
+                    <svg class="pixel-wizard-svg" viewBox="0 0 32 32" width="46" height="46">
+                        <!-- Shadow -->
+                        <ellipse cx="16" cy="30" rx="9" ry="3" fill="rgba(0,0,0,0.5)" />
+                        <!-- Blue Robes -->
+                        <path d="M10 16 L22 16 L25 30 L7 30 Z" fill="#1e3a8a" />
+                        <path d="M12 16 L20 16 L21 30 L11 30 Z" fill="#2563eb" />
+                        <rect x="15" y="16" width="2" height="14" fill="#fbbf24" />
+                        <!-- Wizard Beard & Face -->
+                        <circle cx="16" cy="14" r="5" fill="#fcd34d" />
+                        <path d="M13 14 Q16 22 19 14 Z" fill="#f8fafc" />
+                        <!-- Glowing Arcane Eyes -->
+                        <rect x="13" y="12" width="2" height="2" fill="#38bdf8" />
+                        <rect x="17" y="12" width="2" height="2" fill="#38bdf8" />
+                        <!-- Pointy Wizard Hat -->
+                        <path d="M7 12 L25 12 L16 1 Z" fill="#1e3a8a" />
+                        <rect x="6" y="11" width="20" height="3" rx="1" fill="#1d4ed8" />
+                        <rect x="10" y="10" width="12" height="2" fill="#fbbf24" />
+                        <!-- Arcane Staff with Crystal Gem -->
+                        <rect x="23" y="6" width="2" height="24" fill="#78350f" />
+                        <polygon points="24,2 21,6 27,6" fill="#38bdf8" class="staff-gem-pulse" />
+                    </svg>
                     <div class="wand-muzzle-flash @(Engine.ScrollingDungeon.Hero.IsAttacking ? "active" : "")"></div>
                 </div>
             </div>
@@ -149,7 +186,7 @@
     <!-- Game Over Modal -->
     @if (Engine.ScrollingDungeon.IsRunOver)
     {
-        <GameOverModal OnRestart="RestartRun" />
+        <GameOverModal OnRestart="RestartRun" OnVisitConstellation="HandleVisitConstellation" />
     }
 </div>
 
@@ -191,9 +228,18 @@
         Engine.ScrollingDungeon.SelectDraftOption(option);
     }
 
+    [Parameter]
+    public EventCallback OnNavigateToConstellation { get; set; }
+
     private void RestartRun()
     {
         Engine.ScrollingDungeon.StartNewRun(Engine.State);
+    }
+
+    private async Task HandleVisitConstellation()
+    {
+        Engine.ScrollingDungeon.StartNewRun(Engine.State);
+        await OnNavigateToConstellation.InvokeAsync();
     }
 
     private void HandleKeyDown(KeyboardEventArgs e)

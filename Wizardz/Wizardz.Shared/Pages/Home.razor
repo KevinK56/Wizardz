@@ -2,102 +2,84 @@
 @implements IDisposable
 @inject GameEngine Engine
 
-<PageTitle>Wizardz - Arcane Spire</PageTitle>
+<PageTitle>Wizardz - Celestial Roguelite</PageTitle>
 
 <div class="game-viewport">
-    <!-- Top Header Status Bar -->
+    <!-- Top Retro Pixel Status & Mode Navigation Bar -->
     <header class="game-header">
         <div class="brand-section">
             <span class="brand-icon">🧙‍♂️</span>
             <h1 class="brand-title">WIZARDZ</h1>
         </div>
 
-        <div class="resources-bar">
-            <!-- Mana Pill -->
-            <div class="resource-pill mana">
+        <!-- Center Game Mode Tabs (Full-Screen Flow) -->
+        <nav class="game-modes-nav">
+            <button class="mode-nav-btn @(_currentMode == GameMode.Dungeon ? "active" : "")"
+                    @onclick="() => SwitchMode(GameMode.Dungeon)">
+                ⚔️ DUNGEON
+            </button>
+            <button class="mode-nav-btn @(_currentMode == GameMode.Constellation ? "active" : "")"
+                    @onclick="() => SwitchMode(GameMode.Constellation)">
+                🌌 CONSTELLATION
+            </button>
+            <button class="mode-nav-btn @(_currentMode == GameMode.Armory ? "active" : "")"
+                    @onclick="() => SwitchMode(GameMode.Armory)">
+                🎒 ARMORY (@Engine.State.Inventory.Count)
+            </button>
+        </nav>
+
+        <!-- Right Resources & Settings -->
+        <div class="header-right-group">
+            <div class="resource-pill mana" title="Available Mana">
                 <span class="res-icon">🔮</span>
-                <div class="res-data">
-                    <span class="res-value">@GameEngine.FormatNumber(Engine.State.Mana)</span>
-                    <span class="res-rate">+@GameEngine.FormatNumber(Engine.State.CurrentMps)/s</span>
-                </div>
+                <span class="res-value">@GameEngine.FormatNumber(Engine.State.Mana)</span>
             </div>
 
-            <!-- Arcane Essence Pill -->
-            <div class="resource-pill essence">
-                <span class="res-icon">💠</span>
-                <div class="res-data">
-                    <span class="res-value">@GameEngine.FormatNumber(Engine.State.ArcaneEssence)</span>
-                    <span class="res-rate">Essence</span>
-                </div>
-            </div>
-
-            <!-- Astral Shards Pill -->
-            @if (Engine.State.AstralShards > 0 || Engine.State.LifetimeMana >= 50_000)
+            @if (Engine.State.ArcaneEssence > 0)
             {
-                <div class="resource-pill astral">
-                    <span class="res-icon">⭐</span>
-                    <div class="res-data">
-                        <span class="res-value">@GameEngine.FormatNumber(Engine.State.AstralShards)</span>
-                        <span class="res-rate">Astral</span>
-                    </div>
+                <div class="resource-pill essence" title="Arcane Essence">
+                    <span class="res-icon">💠</span>
+                    <span class="res-value">@GameEngine.FormatNumber(Engine.State.ArcaneEssence)</span>
                 </div>
             }
-        </div>
 
-        <div class="header-actions">
-            <button class="btn-icon-action" @onclick="ManualSave" title="Save Game">
-                💾 Save
-            </button>
             <button class="btn-icon-action" @onclick="() => _showSettingsModal = true" title="Settings">
-                ⚙️ Settings
+                ⚙️
             </button>
         </div>
     </header>
 
-    <!-- Main Game Workspace -->
-    <div class="game-main-content">
-        <!-- Top-Down Scrolling Roguelite Dungeon Viewport -->
-        <section class="spire-stage dungeon-stage">
-            <ScrollingDungeonCanvas />
-        </section>
-
-        <!-- Right Management Tab Panel -->
-        <aside class="management-panel">
-            <nav class="tab-nav">
-                <button class="tab-btn @(_activeTab == "skills" ? "active" : "")" @onclick="@(() => _activeTab = "skills")">
-                    📜 Skills
-                </button>
-                <button class="tab-btn @(_activeTab == "gear" ? "active" : "")" @onclick="@(() => _activeTab = "gear")">
-                    ⚔️ Gear (@Engine.State.Inventory.Count)
-                </button>
-                <button class="tab-btn @(_activeTab == "research" ? "active" : "")" @onclick="@(() => _activeTab = "research")">
-                    🏛️ Academy
-                </button>
-                <button class="tab-btn @(_activeTab == "astral" ? "active" : "")" @onclick="@(() => _activeTab = "astral")">
-                    🌌 Astral
-                </button>
-            </nav>
-
-            <div class="tab-content">
-                @if (_activeTab == "skills")
-                {
-                    <SpellSkillTree />
-                }
-                else if (_activeTab == "gear")
-                {
-                    <EquipmentInventory />
-                }
-                else if (_activeTab == "research")
-                {
-                    <UpgradeShop />
-                }
-                else if (_activeTab == "astral")
-                {
-                    <AstralAscension OnAscended="HandleAscended" />
-                }
+    <!-- Main Full-Screen Game Content Window -->
+    <main class="game-screen-workspace">
+        @if (_currentMode == GameMode.Dungeon)
+        {
+            <div class="dungeon-run-container">
+                <ScrollingDungeonCanvas OnNavigateToConstellation="() => SwitchMode(GameMode.Constellation)" />
             </div>
-        </aside>
-    </div>
+        }
+        else if (_currentMode == GameMode.Constellation)
+        {
+            <div class="constellation-screen-container">
+                <ConstellationSkillTree />
+                <div class="quick-descend-bar">
+                    <button class="btn-launch-run" @onclick="() => SwitchMode(GameMode.Dungeon)">
+                        ⚔️ DESCEND INTO DUNGEON (FLOOR @Engine.State.CurrentDungeonFloor)
+                    </button>
+                </div>
+            </div>
+        }
+        else if (_currentMode == GameMode.Armory)
+        {
+            <div class="armory-screen-container">
+                <EquipmentInventory />
+                <div class="quick-descend-bar">
+                    <button class="btn-launch-run" @onclick="() => SwitchMode(GameMode.Dungeon)">
+                        ⚔️ DESCEND INTO DUNGEON (FLOOR @Engine.State.CurrentDungeonFloor)
+                    </button>
+                </div>
+            </div>
+        }
+    </main>
 
     <!-- Small Floating Notification Toast Bubble -->
     @if (!string.IsNullOrEmpty(_currentToast))
@@ -110,17 +92,22 @@
         </div>
     }
 
-    <!-- Modals -->
+    <!-- Settings Modal -->
     @if (_showSettingsModal)
     {
         <SettingsModal OnClose="() => _showSettingsModal = false" />
     }
-
-    <OfflineGainsModal />
 </div>
 
 @code {
-    private string _activeTab = "skills";
+    public enum GameMode
+    {
+        Dungeon,
+        Constellation,
+        Armory
+    }
+
+    private GameMode _currentMode = GameMode.Dungeon;
     private bool _showSettingsModal = false;
     private string? _currentToast = null;
     private CancellationTokenSource? _toastCts;
@@ -135,6 +122,12 @@
 
     private void HandleStateChanged()
     {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void SwitchMode(GameMode mode)
+    {
+        _currentMode = mode;
         InvokeAsync(StateHasChanged);
     }
 
@@ -153,17 +146,6 @@
                 InvokeAsync(StateHasChanged);
             }
         });
-    }
-
-    private async Task ManualSave()
-    {
-        await Engine.SaveAsync();
-        ShowToast("Game saved successfully!");
-    }
-
-    private void HandleAscended()
-    {
-        _activeTab = "skills";
     }
 
     public void Dispose()

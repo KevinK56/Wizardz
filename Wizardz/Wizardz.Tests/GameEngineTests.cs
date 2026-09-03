@@ -357,4 +357,28 @@ public class GameEngineTests
         scrolling.Tick(0.1);
         Assert.True(scrolling.CurrentXp > 0);
     }
+
+    [Fact]
+    public void TestConstellationMap_LinesAndCoordinatesIntegrity()
+    {
+        var tree = new SkillTreeManager();
+        Assert.NotEmpty(tree.AllNodes);
+        Assert.NotEmpty(tree.AllLines);
+
+        var nodeMap = tree.AllNodes.ToDictionary(n => n.Id);
+
+        // Verify all constellation lines connect valid nodes
+        foreach (var line in tree.AllLines)
+        {
+            Assert.True(nodeMap.ContainsKey(line.FromNodeId), $"FromNodeId {line.FromNodeId} missing");
+            Assert.True(nodeMap.ContainsKey(line.ToNodeId), $"ToNodeId {line.ToNodeId} missing");
+        }
+
+        // Verify all nodes have non-zero constellation positions
+        foreach (var node in tree.AllNodes)
+        {
+            Assert.True(node.ConstellationX >= 0 && node.ConstellationX <= 1000);
+            Assert.True(node.ConstellationY >= 0 && node.ConstellationY <= 1000);
+        }
+    }
 }

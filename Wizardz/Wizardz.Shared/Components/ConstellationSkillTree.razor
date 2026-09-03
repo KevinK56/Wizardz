@@ -1,0 +1,237 @@
+@inject GameEngine Engine
+@inject IGameNotificationService Notifier
+@implements IDisposable
+
+<div class="constellation-view-container">
+    <!-- Top Cosmic Status Bar -->
+    <div class="constellation-header">
+        <div class="constellation-brand">
+            <span class="celestial-icon">🌌</span>
+            <div>
+                <h3>CELESTIAL CONSTELLATION CODEX</h3>
+                <span class="constellation-sub">Attune astral stars to permanently empower your magic</span>
+            </div>
+        </div>
+
+        <div class="constellation-mana-badge">
+            <span class="badge-title">ASTRAL MANA</span>
+            <span class="badge-value">🔮 @GameEngine.FormatNumber(Engine.State.Mana)</span>
+        </div>
+    </div>
+
+    <!-- Constellation Quick Focus Bar -->
+    <nav class="constellation-nav-bar">
+        <button class="nav-star-btn @(_focusedBranch == null ? "active" : "")" @onclick="() => _focusedBranch = null">
+            🌌 All Stars
+        </button>
+        <button class="nav-star-btn fire @(_focusedBranch == SkillBranch.Pyromancy ? "active" : "")" @onclick="() => _focusedBranch = SkillBranch.Pyromancy">
+            🔥 Phoenix
+        </button>
+        <button class="nav-star-btn lightning @(_focusedBranch == SkillBranch.Electromancy ? "active" : "")" @onclick="() => _focusedBranch = SkillBranch.Electromancy">
+            ⚡ Thunder Drake
+        </button>
+        <button class="nav-star-btn frost @(_focusedBranch == SkillBranch.Cryomancy ? "active" : "")" @onclick="() => _focusedBranch = SkillBranch.Cryomancy">
+            ❄️ Frost Serpent
+        </button>
+        <button class="nav-star-btn arcane @(_focusedBranch == SkillBranch.ArcaneMastery ? "active" : "")" @onclick="() => _focusedBranch = SkillBranch.ArcaneMastery">
+            🔮 Cosmic Eye
+        </button>
+        <button class="nav-star-btn vitality @(_focusedBranch == SkillBranch.Vitality ? "active" : "")" @onclick="() => _focusedBranch = SkillBranch.Vitality">
+            🛡️ The Colossus
+        </button>
+    </nav>
+
+    <!-- The Interactive SVG Constellation Canvas -->
+    <div class="constellation-canvas-wrapper">
+        <svg class="constellation-svg" viewBox="0 0 1000 820" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <!-- Glowing filters for constellation stars and lines -->
+                <filter id="gold-glow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur1" />
+                    <feMerge>
+                        <feMergeNode in="blur1" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+                <filter id="cyan-glow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur2" />
+                    <feMerge>
+                        <feMergeNode in="blur2" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+            </defs>
+
+            <!-- Background Nebula Aura Gradients -->
+            <circle cx="230" cy="200" r="140" fill="url(#fire-nebula)" opacity="0.12" />
+            <circle cx="760" cy="200" r="140" fill="url(#lightning-nebula)" opacity="0.12" />
+            <circle cx="230" cy="640" r="140" fill="url(#frost-nebula)" opacity="0.12" />
+            <circle cx="500" cy="380" r="130" fill="url(#arcane-nebula)" opacity="0.15" />
+            <circle cx="760" cy="640" r="140" fill="url(#vitality-nebula)" opacity="0.12" />
+
+            <!-- 1. Constellation Connection Lines -->
+            @foreach (var line in Engine.SkillTree.AllLines)
+            {
+                var fromNode = Engine.SkillTree.AllNodes.FirstOrDefault(n => n.Id == line.FromNodeId);
+                var toNode = Engine.SkillTree.AllNodes.FirstOrDefault(n => n.Id == line.ToNodeId);
+                if (fromNode != null && toNode != null)
+                {
+                    bool isBothUnlocked = fromNode.IsUnlocked && toNode.IsUnlocked;
+                    bool isPartiallyUnlocked = fromNode.IsUnlocked || toNode.IsUnlocked;
+                    bool isDimmed = _focusedBranch != null && line.Branch != _focusedBranch && fromNode.Branch != _focusedBranch && toNode.Branch != _focusedBranch;
+
+                    string lineClass = isBothUnlocked ? "line-attuned" : (isPartiallyUnlocked ? "line-semi" : "line-locked");
+                    if (isDimmed) lineClass += " line-dimmed";
+
+                    <line x1="@fromNode.ConstellationX" y1="@fromNode.ConstellationY"
+                          x2="@toNode.ConstellationX" y2="@toNode.ConstellationY"
+                          class="constellation-line @lineClass" />
+                }
+            }
+
+            <!-- 2. Constellation Star Nodes -->
+            @foreach (var node in Engine.SkillTree.AllNodes)
+            {
+                bool isSelected = _selectedNode?.Id == node.Id;
+                bool isDimmed = _focusedBranch != null && node.Branch != _focusedBranch;
+                double r = node.IsMajorStar ? 24.0 : 16.0;
+
+                <g class="constellation-star-group @(node.IsUnlocked ? "star-attuned" : "star-dormant") @(isSelected ? "star-selected" : "") @(isDimmed ? "star-dimmed" : "")"
+                   transform="translate(@node.ConstellationX, @node.ConstellationY)"
+                   @onclick="() => SelectStar(node)">
+                    
+                    <!-- Outer halo on unlocked stars -->
+                    @if (node.IsUnlocked)
+                    {
+                        <circle cx="0" cy="0" r="@(r + 8)" class="star-halo" />
+                    }
+
+                    <!-- Star Body -->
+                    <circle cx="0" cy="0" r="@r" class="star-core @(node.IsMajorStar ? "major-core" : "minor-core")" />
+
+                    <!-- Star Center Icon / Glyph -->
+                    @RenderStarGlyph(node)
+
+                    <!-- Level Badge -->
+                    @if (node.Level > 0)
+                    {
+                        <rect x="-14" y="@(r + 3)" width="28" height="12" rx="3" class="badge-bg" />
+                        @RenderStarLevel(r, node.Level)
+                    }
+                </g>
+            }
+        </svg>
+    </div>
+
+    <!-- Selected Star Attunement Plaque Modal / Drawer -->
+    @if (_selectedNode != null)
+    {
+        var node = _selectedNode;
+        bool canAfford = Engine.State.Mana >= node.GetCostForNextLevel();
+        bool prereqMet = string.IsNullOrEmpty(node.PrerequisiteNodeId) ||
+                         Engine.SkillTree.AllNodes.Any(n => n.Id == node.PrerequisiteNodeId && n.Level > 0);
+        bool isMaxed = node.Level >= node.MaxLevel;
+        bool canAttune = canAfford && prereqMet && !isMaxed;
+
+        <div class="star-attunement-plaque">
+            <div class="plaque-header">
+                <div class="plaque-icon">@node.Icon</div>
+                <div class="plaque-titles">
+                    <h4>@node.Name</h4>
+                    <span class="plaque-branch">@node.Branch Constellation • @(node.IsMajorStar ? "Keystone Spell" : "Celestial Star")</span>
+                </div>
+                <button class="btn-close-plaque" @onclick="() => _selectedNode = null">✕</button>
+            </div>
+
+            <div class="plaque-body">
+                <p class="plaque-desc">@node.Description</p>
+
+                @if (!prereqMet)
+                {
+                    var prereq = Engine.SkillTree.AllNodes.FirstOrDefault(n => n.Id == node.PrerequisiteNodeId);
+                    <div class="plaque-prereq-warning">
+                        ⚠️ Prerequisite Star Locked: Requires <strong>@(prereq?.Name ?? "Preceding Star")</strong> (Lv. 1+)
+                    </div>
+                }
+
+                <div class="plaque-rank-row">
+                    <span class="rank-label">Rank: Lv.@node.Level / @node.MaxLevel</span>
+                    <div class="rank-pips">
+                        @for (int i = 1; i <= node.MaxLevel; i++)
+                        {
+                            <span class="rank-pip @(i <= node.Level ? "pip-active" : "")"></span>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="plaque-footer">
+                @if (isMaxed)
+                {
+                    <button class="btn-attune-star maxed" disabled>⭐ MAXED ATTRITION</button>
+                }
+                else
+                {
+                    <button class="btn-attune-star @(canAttune ? "btn-attune-ready" : "btn-attune-disabled")"
+                            disabled="@(!canAttune)"
+                            @onclick="AttuneSelectedStar">
+                        <span>⭐ ATTUNE STAR</span>
+                        <span class="attune-cost">🔮 @GameEngine.FormatNumber(node.GetCostForNextLevel())</span>
+                    </button>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private SkillBranch? _focusedBranch = null;
+    private SkillNode? _selectedNode = null;
+
+    protected override void OnInitialized()
+    {
+        Engine.SkillTree.SyncWithGameState(Engine.State);
+        Engine.OnStateChanged += HandleStateChanged;
+
+        // Default select the first keystone star
+        _selectedNode = Engine.SkillTree.AllNodes.FirstOrDefault(n => n.Id == "fireball");
+    }
+
+    private void HandleStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void SelectStar(SkillNode node)
+    {
+        _selectedNode = node;
+    }
+
+    private void AttuneSelectedStar()
+    {
+        if (_selectedNode == null) return;
+        bool ok = Engine.SkillTree.PurchaseNode(_selectedNode.Id, Engine.State);
+        if (ok)
+        {
+            _ = Engine.SaveAsync();
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private MarkupString RenderStarGlyph(SkillNode node)
+    {
+        double y = node.IsMajorStar ? 6 : 4;
+        string glyph = node.IsMajorStar ? node.Icon : "✦";
+        return new MarkupString($"<text x=\"0\" y=\"{y}\" text-anchor=\"middle\" class=\"star-glyph\">{glyph}</text>");
+    }
+
+    private MarkupString RenderStarLevel(double r, int level)
+    {
+        return new MarkupString($"<text x=\"0\" y=\"{r + 12}\" text-anchor=\"middle\" class=\"star-lvl-text\">Lv.{level}</text>");
+    }
+
+    public void Dispose()
+    {
+        Engine.OnStateChanged -= HandleStateChanged;
+    }
+}

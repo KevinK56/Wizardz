@@ -722,7 +722,7 @@ public class ScrollingDungeonEngine
     private void SpawnMonsterNearHero()
     {
         double angle = _rand.NextDouble() * Math.PI * 2.0;
-        double spawnDist = 380.0; // just outside viewport
+        double spawnDist = 220.0 + _rand.NextDouble() * 120.0; // clearly visible within camera arena
 
         double x = Math.Clamp(Hero.WorldX + Math.Cos(angle) * spawnDist, 60.0, MapWidth - 60.0);
         double y = Math.Clamp(Hero.WorldY + Math.Sin(angle) * spawnDist, 60.0, MapHeight - 60.0);
@@ -749,8 +749,8 @@ public class ScrollingDungeonEngine
 
     private void SpawnBossNearHero()
     {
-        double x = Math.Clamp(Hero.WorldX, 200.0, MapWidth - 200.0);
-        double y = Math.Clamp(Hero.WorldY - 250.0, 200.0, MapHeight - 200.0);
+        double x = Math.Clamp(Hero.WorldX + 60.0, 150.0, MapWidth - 150.0);
+        double y = Math.Clamp(Hero.WorldY - 180.0, 150.0, MapHeight - 150.0);
 
         int floor = CurrentLevel.FloorNumber;
         double hp = (350.0 + (floor * 120.0)) * Math.Pow(1.08, floor / 2.0);
