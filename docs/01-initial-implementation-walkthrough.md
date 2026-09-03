@@ -23,6 +23,11 @@ We have implemented the complete foundational architecture and playable core for
   - 10 Hz tick loop with delta-time calculation for smooth resource progression.
   - Offline progression math: calculates time elapsed since last save (up to 24h) and grants offline mana upon return.
   - Auto-save every 10 seconds.
+  - Real-time affordability dispatching via SignalR notifications whenever mana is earned or spent.
+- [`GameHub.cs`](file:///c:/Dev/TheApp/Wizardz/Wizardz/Wizardz.Web/Hubs/GameHub.cs) & [`SignalRNotificationService.cs`](file:///c:/Dev/TheApp/Wizardz/Wizardz/Wizardz.Shared/Services/SignalRNotificationService.cs):
+  - SignalR Hub hosted at `/hubs/game` in ASP.NET Core with automatic reconnecting client.
+  - Broadcasts `AffordabilityUpdated` and `StateUpdated` events to components.
+  - Seamless fallback for offline MAUI execution without server dependency.
 - [`LocalSaveStorage.cs`](file:///c:/Dev/TheApp/Wizardz/Wizardz/Wizardz.Shared/Services/LocalSaveStorage.cs): Dual-mode local persistence (native file system for MAUI desktop/mobile and browser `localStorage` for Web).
 - [`CloudSaveService.cs`](file:///c:/Dev/TheApp/Wizardz/Wizardz/Wizardz.Shared/Services/CloudSaveService.cs): Standardized cloud interface supporting Google Drive and Apple iCloud, conflict detection (prompting user if cloud vs local has different timestamps/progress), and forced sync/download.
 - [`ServiceCollectionExtensions.cs`](file:///c:/Dev/TheApp/Wizardz/Wizardz/Wizardz.Shared/Services/ServiceCollectionExtensions.cs): Single `.AddWizardzGame()` extension method used by MAUI, Web, and Client.
