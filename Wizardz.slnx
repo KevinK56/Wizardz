@@ -1,9 +1,9 @@
 <Solution>
-  <Folder Name="/Wizardz/">
-    <Project Path="Wizardz/Wizardz.Tests/Wizardz.Tests.csproj" />
-  </Folder>
   <Project Path="Wizardz/Wizardz.Shared/Wizardz.Shared.csproj" />
+  <Project Path="Wizardz/Wizardz.Tests/Wizardz.Tests.csproj" />
   <Project Path="Wizardz/Wizardz.Web.Client/Wizardz.Web.Client.csproj" />
   <Project Path="Wizardz/Wizardz.Web/Wizardz.Web.csproj" />
-  <Project Path="Wizardz/Wizardz/Wizardz.csproj" />
+  <Project Path="Wizardz/Wizardz/Wizardz.csproj">
+    <Deploy Solution="Debug|*" />
+  </Project>
 </Solution>

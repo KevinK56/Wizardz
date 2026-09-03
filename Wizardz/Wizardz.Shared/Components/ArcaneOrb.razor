@@ -1,4 +1,5 @@
 @inject GameEngine Engine
+@implements IDisposable
 
 <div class="orb-container">
     <div class="orb-platform">
@@ -19,11 +20,14 @@
 
     <!-- Floating Click Popups -->
     <div class="floating-numbers-container">
-        @foreach (var item in _activeFloatingTexts)
+        @foreach (var item in GetFloatingTextsSnapshot())
         {
-            <div class="floating-mana-text" style="left: @(item.X)px; top: @(item.Y)px;">
-                +@GameEngine.FormatNumber(item.Amount)
-            </div>
+            if (item != null)
+            {
+                <div class="floating-mana-text" style="left: @(item.X)px; top: @(item.Y)px;">
+                    +@GameEngine.FormatNumber(item.Amount)
+                </div>
+            }
         }
     </div>
 </div>
@@ -31,11 +35,20 @@
 @code {
     private bool _isClicked = false;
     private readonly List<FloatingTextItem> _activeFloatingTexts = new();
+    private readonly object _floatingLock = new();
     private readonly Random _rand = new();
 
     protected override void OnInitialized()
     {
         Engine.OnManaClicked += HandleManaClicked;
+    }
+
+    private FloatingTextItem[] GetFloatingTextsSnapshot()
+    {
+        lock (_floatingLock)
+        {
+            return _activeFloatingTexts.Where(x => x != null).ToArray();
+        }
     }
 
     private void HandleOrbClick(MouseEventArgs e)
@@ -47,7 +60,6 @@
 
     private void HandleManaClicked(double amount)
     {
-        // Add floating text with small random offset
         int offsetX = _rand.Next(30, 150);
         int offsetY = _rand.Next(40, 120);
 
@@ -59,16 +71,29 @@
             Y = offsetY
         };
 
-        _activeFloatingTexts.Add(item);
+        lock (_floatingLock)
+        {
+            if (_activeFloatingTexts.Count > 20)
+            {
+                _activeFloatingTexts.RemoveAt(0);
+            }
+            _activeFloatingTexts.Add(item);
+        }
 
-        // Remove after animation finishes
+        // Safely remove after animation finishes on the dispatcher
         _ = Task.Delay(900).ContinueWith(_ =>
         {
-            _activeFloatingTexts.Remove(item);
-            InvokeAsync(StateHasChanged);
+            _ = InvokeAsync(() =>
+            {
+                lock (_floatingLock)
+                {
+                    _activeFloatingTexts.Remove(item);
+                }
+                StateHasChanged();
+            });
         });
 
-        InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private async Task ResetClickAnimation()
@@ -76,6 +101,15 @@
         await Task.Delay(100);
         _isClicked = false;
         await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Engine.OnManaClicked -= HandleManaClicked;
+        lock (_floatingLock)
+        {
+            _activeFloatingTexts.Clear();
+        }
     }
 
     private class FloatingTextItem
