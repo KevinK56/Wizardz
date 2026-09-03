@@ -56,28 +56,35 @@
 
     <!-- Main Game Workspace -->
     <div class="game-main-content">
-        <!-- Spire Core (Orb + Spellbook) -->
-        <section class="spire-stage">
-            <ArcaneOrb />
+        <!-- Top-Down Dungeon Viewport + Spellbook Bar -->
+        <section class="spire-stage dungeon-stage">
+            <TopDownDungeonView />
             <SpellbookBar />
         </section>
 
         <!-- Right Management Tab Panel -->
         <aside class="management-panel">
             <nav class="tab-nav">
+                <button class="tab-btn @(_activeTab == "gear" ? "active" : "")" @onclick="@(() => _activeTab = "gear")">
+                    ⚔️ Gear (@Engine.State.Inventory.Count)
+                </button>
                 <button class="tab-btn @(_activeTab == "roster" ? "active" : "")" @onclick="@(() => _activeTab = "roster")">
                     🧙 Guild (@Engine.State.Wizards.Sum(w => w.Count))
                 </button>
                 <button class="tab-btn @(_activeTab == "research" ? "active" : "")" @onclick="@(() => _activeTab = "research")">
-                    🏛️ Academy (@Engine.State.Upgrades.Count(u => !u.IsPurchased && Engine.State.LifetimeMana >= u.RequiredLifetimeMana))
+                    🏛️ Academy
                 </button>
                 <button class="tab-btn @(_activeTab == "astral" ? "active" : "")" @onclick="@(() => _activeTab = "astral")">
-                    🌌 Astral Gate
+                    🌌 Astral
                 </button>
             </nav>
 
             <div class="tab-content">
-                @if (_activeTab == "roster")
+                @if (_activeTab == "gear")
+                {
+                    <EquipmentInventory />
+                }
+                else if (_activeTab == "roster")
                 {
                     <WizardRoster />
                 }

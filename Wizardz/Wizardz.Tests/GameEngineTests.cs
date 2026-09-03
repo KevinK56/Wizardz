@@ -50,19 +50,27 @@ public class MockNotificationService : IGameNotificationService
 
 public class GameEngineTests
 {
+    private static GameEngine CreateEngine(ISaveStorage storage, ICloudSaveService cloud, IGameNotificationService notifier)
+    {
+        var dungeon = new DungeonCrawlerEngine(notifier);
+        return new GameEngine(storage, cloud, notifier, dungeon);
+    }
+
     [Fact]
     public void TestInitialGameState_HasExpectedDefaults()
     {
         var storage = new MockSaveStorage();
         var cloud = new CloudSaveService();
         var notifier = new MockNotificationService();
-        using var engine = new GameEngine(storage, cloud, notifier);
+        using var engine = CreateEngine(storage, cloud, notifier);
 
         Assert.Equal(0, engine.State.Mana);
         Assert.Equal(0, engine.State.CurrentMps);
         Assert.NotEmpty(engine.State.Wizards);
         Assert.NotEmpty(engine.State.Spells);
         Assert.NotEmpty(engine.State.Upgrades);
+        Assert.NotNull(engine.Dungeon);
+        Assert.Equal(1, engine.State.CurrentDungeonFloor);
     }
 
     [Fact]
@@ -71,7 +79,7 @@ public class GameEngineTests
         var storage = new MockSaveStorage();
         var cloud = new CloudSaveService();
         var notifier = new MockNotificationService();
-        using var engine = new GameEngine(storage, cloud, notifier);
+        using var engine = CreateEngine(storage, cloud, notifier);
 
         bool notified = false;
         notifier.OnAffordabilityChanged += () => notified = true;
@@ -91,7 +99,7 @@ public class GameEngineTests
         var storage = new MockSaveStorage();
         var cloud = new CloudSaveService();
         var notifier = new MockNotificationService();
-        using var engine = new GameEngine(storage, cloud, notifier);
+        using var engine = CreateEngine(storage, cloud, notifier);
 
         // Give player enough mana to buy 1 novice
         engine.State.Mana = 100;
@@ -111,12 +119,13 @@ public class GameEngineTests
     {
         var unit = new WizardUnit
         {
+            Id = "test",
             BaseCost = 10,
             CostMultiplier = 1.15,
             Count = 0
         };
 
-        // Single cost
+        // 1 unit cost
         Assert.Equal(10, unit.GetCostForNext(1));
 
         // 5 units cost
@@ -158,7 +167,7 @@ public class GameEngineTests
         var storage = new MockSaveStorage();
         var cloud = new CloudSaveService();
         var notifier = new MockNotificationService();
-        using var engine = new GameEngine(storage, cloud, notifier);
+        using var engine = CreateEngine(storage, cloud, notifier);
 
         engine.State.Mana = 500;
         var surge = engine.State.Spells.First(s => s.Id == "arcane_surge");
@@ -196,7 +205,7 @@ public class GameEngineTests
         var storage = new MockSaveStorage();
         var cloud = new CloudSaveService();
         var notifier = new MockNotificationService();
-        using var engine = new GameEngine(storage, cloud, notifier);
+        using var engine = CreateEngine(storage, cloud, notifier);
 
         Assert.Equal(1, engine.State.SelectedBuyQuantity);
         Assert.False(engine.State.IsBuyMaxSelected);
@@ -216,7 +225,7 @@ public class GameEngineTests
         var storage = new MockSaveStorage();
         var cloud = new CloudSaveService();
         var notifier = new MockNotificationService();
-        using var engine = new GameEngine(storage, cloud, notifier);
+        using var engine = CreateEngine(storage, cloud, notifier);
 
         // Verify defaults
         Assert.Equal(2, engine.State.LocalAutoSaveIntervalMinutes);
@@ -226,5 +235,73 @@ public class GameEngineTests
         engine.UpdateAutoSaveSettings(5, 10);
         Assert.Equal(5, engine.State.LocalAutoSaveIntervalMinutes);
         Assert.Equal(10, engine.State.CloudAutoSaveIntervalMinutes);
+    }
+
+    [Fact]
+    public void TestEquipmentGenerationAndEquip_CalculatesStatsCorrectly()
+    {
+        var state = GameState.CreateDefault();
+        double initialAtk = state.TotalAttackPower;
+
+        var weapon = EquipmentGenerator.GenerateLoot(5, ItemRarity.Rare);
+        weapon.Slot = EquipmentSlot.Weapon;
+        weapon.AttackPower = 25.0;
+
+        state.Inventory.Add(weapon);
+        Assert.Contains(weapon, state.Inventory);
+
+        state.EquipItem(weapon);
+        Assert.DoesNotContain(weapon, state.Inventory);
+        Assert.Equal(weapon, state.EquippedGear[EquipmentSlot.Weapon]);
+        Assert.True(state.TotalAttackPower > initialAtk);
+    }
+
+    [Fact]
+    public void TestTreasureChestSpawningAndOpening_YieldsLootAndEquipment()
+    {
+        var notifier = new MockNotificationService();
+        var dungeon = new DungeonCrawlerEngine(notifier);
+        var state = GameState.CreateDefault();
+        dungeon.Initialize(state);
+
+        dungeon.SpawnChest();
+        Assert.NotNull(dungeon.ActiveChest);
+        Assert.NotNull(state.ActiveChest);
+
+        double oldMana = state.Mana;
+        int oldInventoryCount = state.Inventory.Count;
+
+        dungeon.OpenChest();
+        Assert.Null(dungeon.ActiveChest);
+        Assert.Null(state.ActiveChest);
+        Assert.True(state.Mana > oldMana);
+    }
+
+    [Fact]
+    public void TestDungeonCrawling_Every10thLevelIsBossWithBossScaling()
+    {
+        var notifier = new MockNotificationService();
+        var dungeon = new DungeonCrawlerEngine(notifier);
+        var state = GameState.CreateDefault();
+
+        // Floor 1 (Regular room)
+        state.CurrentDungeonFloor = 1;
+        dungeon.Initialize(state);
+        Assert.False(dungeon.CurrentLevel.IsBossFloor);
+        Assert.DoesNotContain(dungeon.ActiveMonsters, m => m.IsBoss);
+
+        // Floor 10 (Boss Room!)
+        state.CurrentDungeonFloor = 10;
+        dungeon.Initialize(state);
+        Assert.True(dungeon.CurrentLevel.IsBossFloor);
+        Assert.Contains(dungeon.ActiveMonsters, m => m.IsBoss);
+        var boss = dungeon.ActiveMonsters.First(m => m.IsBoss);
+        Assert.True(boss.MaxHealth > 500);
+
+        // Floor 20 (Crypt Boss)
+        state.CurrentDungeonFloor = 20;
+        dungeon.Initialize(state);
+        Assert.True(dungeon.CurrentLevel.IsBossFloor);
+        Assert.Equal(DungeonBiome.SunkenCrypt, dungeon.CurrentLevel.Biome);
     }
 }

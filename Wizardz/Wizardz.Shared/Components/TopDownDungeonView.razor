@@ -1,0 +1,213 @@
+@inject GameEngine Engine
+@inject IGameNotificationService Notifier
+@implements IDisposable
+
+<div class="dungeon-viewport-container">
+    <!-- Top Dungeon Status & Floor Banner -->
+    <div class="dungeon-hud-bar @(Engine.Dungeon.CurrentLevel.IsBossFloor ? "boss-hud" : "")">
+        <div class="floor-title-group">
+            <span class="floor-icon">@(Engine.Dungeon.CurrentLevel.IsBossFloor ? "👑" : "🏰")</span>
+            <div class="floor-details">
+                <span class="floor-number">FLOOR @Engine.Dungeon.CurrentLevel.FloorNumber</span>
+                <span class="floor-biome">@Engine.Dungeon.CurrentLevel.BiomeName</span>
+            </div>
+        </div>
+
+        @if (Engine.Dungeon.CurrentLevel.IsBossFloor && Engine.Dungeon.IsBossActive)
+        {
+            var boss = Engine.Dungeon.ActiveMonsters.FirstOrDefault(m => m.IsBoss);
+            if (boss != null)
+            {
+                <div class="boss-hud-health">
+                    <div class="boss-health-header">
+                        <span class="boss-name">⚠️ @boss.Name</span>
+                        <span class="boss-hp-val">@GameEngine.FormatNumber(boss.CurrentHealth) / @GameEngine.FormatNumber(boss.MaxHealth)</span>
+                    </div>
+                    <div class="boss-hp-track">
+                        <div class="boss-hp-fill" style="width: @(Math.Clamp((boss.CurrentHealth / boss.MaxHealth) * 100.0, 0, 100))%;"></div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="room-progress-group">
+                <span class="progress-label">Cleared:</span>
+                <span class="progress-counter">@Engine.Dungeon.MonstersKilledInRoom / @Engine.Dungeon.MonstersRequiredForRoom</span>
+                <div class="mini-progress-bar">
+                    <div class="mini-progress-fill" style="width: @(Math.Min(100.0, (Engine.Dungeon.MonstersKilledInRoom / (double)Engine.Dungeon.MonstersRequiredForRoom) * 100.0))%;"></div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- The Top-Down Dungeon Room Viewport -->
+    <div class="dungeon-room @GetBiomeClass()" @onclick="HandleRoomClick">
+        <!-- Dungeon Torches in Corners -->
+        <div class="torch top-left"><span class="torch-flame">🔥</span></div>
+        <div class="torch top-right"><span class="torch-flame">🔥</span></div>
+        <div class="torch bottom-left"><span class="torch-flame">🔥</span></div>
+        <div class="torch bottom-right"><span class="torch-flame">🔥</span></div>
+
+        <!-- Room Exit Portal / Stairs (Visible when room cleared) -->
+        @if (Engine.Dungeon.IsRoomCleared)
+        {
+            <div class="dungeon-portal-exit" @onclick="DescendFloor" title="Descend to next floor!">
+                <div class="portal-rune-ring"></div>
+                <span class="portal-symbol">🌀</span>
+                <span class="portal-label">Descend to Floor @(Engine.Dungeon.CurrentLevel.FloorNumber + 1)</span>
+            </div>
+        }
+
+        <!-- Wizard Hero Sprite (Center) -->
+        <div class="wizard-hero-entity" style="left: @(Engine.Dungeon.HeroX)%; top: @(Engine.Dungeon.HeroY)%;">
+            <div class="hero-magic-circle"></div>
+            <div class="hero-sprite" style="transform: rotate(@(Engine.Dungeon.HeroFacingAngle)deg);">
+                <div class="hero-body">
+                    <span class="hero-icon">🧙‍♂️</span>
+                    <div class="hero-wand-glow"></div>
+                </div>
+            </div>
+            <div class="hero-dps-tag">ATK @GameEngine.FormatNumber(Engine.State.TotalAttackPower)</div>
+        </div>
+
+        <!-- Active Projectiles -->
+        @foreach (var p in Engine.Dungeon.ActiveProjectiles)
+        {
+            <div class="magic-projectile @(p.IsCrit ? "projectile-crit" : "")"
+                 style="left: @(p.CurrentX)%; top: @(p.CurrentY)%;">
+                <span class="proj-icon">@p.Icon</span>
+            </div>
+        }
+
+        <!-- Monsters in Room -->
+        @foreach (var m in Engine.Dungeon.ActiveMonsters)
+        {
+            double hpPercent = m.MaxHealth > 0 ? (m.CurrentHealth / m.MaxHealth) * 100.0 : 0;
+
+            <div class="dungeon-monster-entity @(m.IsBoss ? "monster-boss" : "") @(m.IsHit ? "monster-hit-flash" : "")"
+                 style="left: @(m.X)%; top: @(m.Y)%;"
+                 @onclick:stopPropagation
+                 @onclick="() => ClickMonster(m.Id)">
+                
+                <!-- Monster Floating Health Bar -->
+                <div class="monster-hp-bar">
+                    <div class="monster-hp-fill" style="width: @(Math.Clamp(hpPercent, 0, 100))%;"></div>
+                </div>
+
+                <!-- Monster Sprite Icon -->
+                <div class="monster-sprite">
+                    <span class="monster-emoji">@m.Icon</span>
+                </div>
+
+                <div class="monster-name-tag">@m.Name</div>
+            </div>
+        }
+
+        <!-- Random Spawned Treasure Chest -->
+        @if (Engine.Dungeon.ActiveChest != null)
+        {
+            var chest = Engine.Dungeon.ActiveChest;
+            <div class="treasure-chest-entity chest-tier-@chest.Tier.ToString().ToLowerInvariant()"
+                 style="left: @(chest.X)%; top: @(chest.Y)%;"
+                 @onclick:stopPropagation
+                 @onclick="OpenChest">
+                <div class="chest-glow-ring"></div>
+                <span class="chest-icon">@chest.Icon</span>
+                <span class="chest-tap-hint">Tap Chest!</span>
+            </div>
+        }
+
+        <!-- Combat Floating Damage Numbers -->
+        @foreach (var ft in Engine.Dungeon.FloatingTexts)
+        {
+            <div class="combat-floating-number @(ft.IsCrit ? "crit-damage" : "")"
+                 style="left: @(ft.X)%; top: @(ft.Y)%;">
+                @ft.Text
+            </div>
+        }
+    </div>
+
+    <!-- Active Chest Loot Notification Overlay -->
+    @if (_lastOpenedChest != null)
+    {
+        <div class="chest-loot-popup" @onclick="() => _lastOpenedChest = null">
+            <div class="chest-loot-card">
+                <h4>🎁 Chest Opened!</h4>
+                <div class="loot-rewards">
+                    <div class="loot-row mana">🔮 +@GameEngine.FormatNumber(_lastOpenedChest.ManaReward) Mana</div>
+                    @if (_lastOpenedChest.EssenceReward > 0)
+                    {
+                        <div class="loot-row essence">💠 +@_lastOpenedChest.EssenceReward Arcane Essence</div>
+                    }
+                    @if (_lastOpenedChest.DroppedItem != null)
+                    {
+                        var gear = _lastOpenedChest.DroppedItem;
+                        <div class="loot-row gear @gear.GetRarityCssClass()">
+                            <span>@gear.Icon</span>
+                            <strong>@gear.Name</strong> (@gear.Rarity)
+                        </div>
+                    }
+                </div>
+                <button class="btn-claim-loot" @onclick="() => _lastOpenedChest = null">Equip / Claim</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private TreasureChest? _lastOpenedChest = null;
+
+    protected override void OnInitialized()
+    {
+        Engine.Dungeon.OnDungeonUpdated += HandleDungeonUpdate;
+        Engine.Dungeon.OnChestOpened += HandleChestOpened;
+    }
+
+    private void HandleDungeonUpdate()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleChestOpened(TreasureChest chest)
+    {
+        _lastOpenedChest = chest;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ClickMonster(string monsterId)
+    {
+        Engine.Dungeon.ClickAttackMonster(monsterId);
+    }
+
+    private void HandleRoomClick(MouseEventArgs e)
+    {
+        // Active click on empty room space fires closest attack or grants click mana
+        Engine.ClickFocusOrb();
+    }
+
+    private void OpenChest()
+    {
+        Engine.Dungeon.OpenChest();
+    }
+
+    private void DescendFloor()
+    {
+        Engine.Dungeon.DescendToNextFloor();
+    }
+
+    private string GetBiomeClass() => Engine.Dungeon.CurrentLevel.Biome switch
+    {
+        DungeonBiome.MossyCatacombs => "biome-catacombs",
+        DungeonBiome.SunkenCrypt => "biome-crypt",
+        DungeonBiome.MagmaCaldera => "biome-magma",
+        DungeonBiome.AstralVault => "biome-astral",
+        _ => "biome-catacombs"
+    };
+
+    public void Dispose()
+    {
+        Engine.Dungeon.OnDungeonUpdated -= HandleDungeonUpdate;
+        Engine.Dungeon.OnChestOpened -= HandleChestOpened;
+    }
+}

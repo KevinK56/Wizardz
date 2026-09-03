@@ -1,0 +1,213 @@
+@inject GameEngine Engine
+@inject IGameNotificationService Notifier
+@implements IDisposable
+
+<div class="equipment-panel">
+    <div class="panel-header">
+        <h3>⚔️ Wizard Equipment & Inventory</h3>
+        <span class="panel-subtitle">Dungeon gear forged to amplify spells & speed</span>
+    </div>
+
+    <!-- Top: Equipped Paper Doll & Combat Stats -->
+    <div class="hero-loadout-card">
+        <div class="slots-grid">
+            <!-- Weapon Slot -->
+            <div class="gear-slot @(GetEquipped(EquipmentSlot.Weapon) != null ? GetEquipped(EquipmentSlot.Weapon)!.GetRarityCssClass() : "empty")"
+                 @onclick="() => Unequip(EquipmentSlot.Weapon)"
+                 title="Weapon (Click to unequip)">
+                <span class="slot-label">WEAPON</span>
+                @if (GetEquipped(EquipmentSlot.Weapon) is { } w)
+                {
+                    <span class="slot-icon">@w.Icon</span>
+                    <span class="slot-item-name">@w.Name</span>
+                    <span class="slot-stat">+@w.AttackPower ATK</span>
+                }
+                else
+                {
+                    <span class="slot-empty-hint">Empty Wand</span>
+                }
+            </div>
+
+            <!-- Robe Slot -->
+            <div class="gear-slot @(GetEquipped(EquipmentSlot.Robe) != null ? GetEquipped(EquipmentSlot.Robe)!.GetRarityCssClass() : "empty")"
+                 @onclick="() => Unequip(EquipmentSlot.Robe)"
+                 title="Robe (Click to unequip)">
+                <span class="slot-label">ROBE</span>
+                @if (GetEquipped(EquipmentSlot.Robe) is { } r)
+                {
+                    <span class="slot-icon">@r.Icon</span>
+                    <span class="slot-item-name">@r.Name</span>
+                    <span class="slot-stat">+@r.AttackPower ATK</span>
+                }
+                else
+                {
+                    <span class="slot-empty-hint">Empty Robe</span>
+                }
+            </div>
+
+            <!-- Hat Slot -->
+            <div class="gear-slot @(GetEquipped(EquipmentSlot.Hat) != null ? GetEquipped(EquipmentSlot.Hat)!.GetRarityCssClass() : "empty")"
+                 @onclick="() => Unequip(EquipmentSlot.Hat)"
+                 title="Hat (Click to unequip)">
+                <span class="slot-label">HAT</span>
+                @if (GetEquipped(EquipmentSlot.Hat) is { } h)
+                {
+                    <span class="slot-icon">@h.Icon</span>
+                    <span class="slot-item-name">@h.Name</span>
+                    <span class="slot-stat">+@h.CriticalChanceBonus% CRIT</span>
+                }
+                else
+                {
+                    <span class="slot-empty-hint">Empty Hat</span>
+                }
+            </div>
+
+            <!-- Ring Slot -->
+            <div class="gear-slot @(GetEquipped(EquipmentSlot.Ring) != null ? GetEquipped(EquipmentSlot.Ring)!.GetRarityCssClass() : "empty")"
+                 @onclick="() => Unequip(EquipmentSlot.Ring)"
+                 title="Ring (Click to unequip)">
+                <span class="slot-label">RING</span>
+                @if (GetEquipped(EquipmentSlot.Ring) is { } g)
+                {
+                    <span class="slot-icon">@g.Icon</span>
+                    <span class="slot-item-name">@g.Name</span>
+                    <span class="slot-stat">+@g.ManaFindBonus% FIND</span>
+                }
+                else
+                {
+                    <span class="slot-empty-hint">Empty Ring</span>
+                }
+            </div>
+        </div>
+
+        <!-- Combat Stats Overview -->
+        <div class="stats-overview-box">
+            <div class="stat-badge">
+                <span class="stat-name">Attack Power</span>
+                <span class="stat-val atk">⚔️ @GameEngine.FormatNumber(Engine.State.TotalAttackPower)</span>
+            </div>
+            <div class="stat-badge">
+                <span class="stat-name">Cast Speed</span>
+                <span class="stat-val spd">⚡ @Engine.State.TotalAttackSpeed.ToString("0.#")/s</span>
+            </div>
+            <div class="stat-badge">
+                <span class="stat-name">Crit Chance</span>
+                <span class="stat-val crit">🎯 @Engine.State.TotalCritChance.ToString("0.#")%</span>
+            </div>
+            <div class="stat-badge">
+                <span class="stat-name">Crit Damage</span>
+                <span class="stat-val dmg">💥 @Engine.State.TotalCritDamage.ToString("0.#")%</span>
+            </div>
+            <div class="stat-badge">
+                <span class="stat-name">Mana Find</span>
+                <span class="stat-val find">💰 +@((Engine.State.TotalManaFind - 1.0) * 100.0).ToString("0.#")%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backpack / Inventory Section -->
+    <div class="inventory-section">
+        <div class="inventory-header">
+            <h4>🎒 Backpack Inventory (@Engine.State.Inventory.Count items)</h4>
+        </div>
+
+        @if (Engine.State.Inventory.Count == 0)
+        {
+            <div class="empty-inventory-note">
+                <p>📦 Your backpack is empty.</p>
+                <span>Defeat dungeon monsters and unlock treasure chests to find loot!</span>
+            </div>
+        }
+        else
+        {
+            <div class="inventory-grid">
+                @foreach (var item in Engine.State.Inventory.OrderByDescending(i => (int)i.Rarity).ThenByDescending(i => i.ItemLevel))
+                {
+                    <div class="inventory-item-card @item.GetRarityCssClass()">
+                        <div class="item-card-top">
+                            <span class="item-icon">@item.Icon</span>
+                            <div class="item-meta">
+                                <span class="item-name" style="color: @item.GetRarityColorHex();">@item.Name</span>
+                                <span class="item-slot-badge">@item.Slot • Lv.@item.ItemLevel</span>
+                            </div>
+                            <span class="item-rarity-pill @item.GetRarityCssClass()">@item.Rarity</span>
+                        </div>
+
+                        <div class="item-stats-breakdown">
+                            @if (item.AttackPower > 0)
+                            {
+                                <span class="item-stat-chip">⚔️ +@item.AttackPower ATK</span>
+                            }
+                            @if (item.AttackSpeedBonus > 0)
+                            {
+                                <span class="item-stat-chip">⚡ +@item.AttackSpeedBonus% SPD</span>
+                            }
+                            @if (item.CriticalChanceBonus > 0)
+                            {
+                                <span class="item-stat-chip">🎯 +@item.CriticalChanceBonus% CRIT</span>
+                            }
+                            @if (item.CriticalDamageBonus > 0)
+                            {
+                                <span class="item-stat-chip">💥 +@item.CriticalDamageBonus% DMG</span>
+                            }
+                            @if (item.ManaFindBonus > 0)
+                            {
+                                <span class="item-stat-chip">💰 +@item.ManaFindBonus% FIND</span>
+                            }
+                        </div>
+
+                        <div class="item-actions">
+                            <button class="btn-equip-item" @onclick="() => Equip(item)">Equip</button>
+                            <button class="btn-scrap-item" @onclick="() => Scrap(item.Id)">Scrap</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Engine.OnStateChanged += HandleStateChanged;
+        Notifier.OnAffordabilityChanged += HandleStateChanged;
+    }
+
+    private void HandleStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private EquipmentItem? GetEquipped(EquipmentSlot slot)
+    {
+        return Engine.State.EquippedGear.TryGetValue(slot, out var item) ? item : null;
+    }
+
+    private void Equip(EquipmentItem item)
+    {
+        Engine.State.EquipItem(item);
+        _ = Engine.SaveAsync();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Unequip(EquipmentSlot slot)
+    {
+        Engine.State.UnequipItem(slot);
+        _ = Engine.SaveAsync();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Scrap(string itemId)
+    {
+        Engine.State.ScrapItem(itemId);
+        _ = Engine.SaveAsync();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Engine.OnStateChanged -= HandleStateChanged;
+        Notifier.OnAffordabilityChanged -= HandleStateChanged;
+    }
+}

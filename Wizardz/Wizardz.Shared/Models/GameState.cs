@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Wizardz.Shared.Services;
 
 namespace Wizardz.Shared.Models;
 
@@ -21,9 +22,83 @@ public class GameState
     public int LocalAutoSaveIntervalMinutes { get; set; } = 2; // Default 2 minutes
     public int CloudAutoSaveIntervalMinutes { get; set; } = 5; // Default 5 minutes
 
+    // Dungeon Progression & Hero Combat Stats
+    public int CurrentDungeonFloor { get; set; } = 1;
+    public int HighestDungeonFloor { get; set; } = 1;
+    public double HeroBaseAttackPower { get; set; } = 12.0;
+    public double HeroBaseAttackSpeed { get; set; } = 1.2;
+    public double HeroBaseCritChance { get; set; } = 5.0;
+    public double HeroBaseCritDamage { get; set; } = 150.0;
+
+    public Dictionary<EquipmentSlot, EquipmentItem> EquippedGear { get; set; } = new();
+    public List<EquipmentItem> Inventory { get; set; } = new();
+    public TreasureChest? ActiveChest { get; set; }
+
     public List<WizardUnit> Wizards { get; set; } = new();
     public List<Upgrade> Upgrades { get; set; } = new();
     public List<Spell> Spells { get; set; } = new();
+
+    [JsonIgnore]
+    public double TotalAttackPower
+    {
+        get
+        {
+            double gearBonus = EquippedGear.Values.Sum(e => e.AttackPower);
+            double globalMult = GlobalMpsMultiplier; // Tower multipliers synergize with Hero
+            return (HeroBaseAttackPower + gearBonus) * globalMult;
+        }
+    }
+
+    [JsonIgnore]
+    public double TotalAttackSpeed
+    {
+        get
+        {
+            double speedBonusPct = EquippedGear.Values.Sum(e => e.AttackSpeedBonus);
+            return HeroBaseAttackSpeed * (1.0 + (speedBonusPct / 100.0));
+        }
+    }
+
+    [JsonIgnore]
+    public double TotalCritChance => Math.Min(75.0, HeroBaseCritChance + EquippedGear.Values.Sum(e => e.CriticalChanceBonus));
+
+    [JsonIgnore]
+    public double TotalCritDamage => HeroBaseCritDamage + EquippedGear.Values.Sum(e => e.CriticalDamageBonus);
+
+    [JsonIgnore]
+    public double TotalManaFind => 1.0 + (EquippedGear.Values.Sum(e => e.ManaFindBonus) / 100.0);
+
+    public void EquipItem(EquipmentItem item)
+    {
+        if (EquippedGear.TryGetValue(item.Slot, out var existing))
+        {
+            Inventory.Add(existing);
+        }
+
+        Inventory.Remove(item);
+        EquippedGear[item.Slot] = item;
+    }
+
+    public void UnequipItem(EquipmentSlot slot)
+    {
+        if (EquippedGear.TryGetValue(slot, out var item))
+        {
+            EquippedGear.Remove(slot);
+            Inventory.Add(item);
+        }
+    }
+
+    public double ScrapItem(string itemId)
+    {
+        var item = Inventory.FirstOrDefault(i => i.Id == itemId);
+        if (item == null) return 0;
+
+        Inventory.Remove(item);
+        double manaYield = (item.ItemLevel * 25.0) * ((int)item.Rarity + 1);
+        Mana += manaYield;
+        LifetimeMana += manaYield;
+        return manaYield;
+    }
 
     [JsonIgnore]
     public double EffectiveClickMultiplier
@@ -160,6 +235,13 @@ public class GameState
             CreatedAtUtc = DateTime.UtcNow,
             LastSaveTimeUtc = DateTime.UtcNow,
             LastTickTimeUtc = DateTime.UtcNow,
+            CurrentDungeonFloor = 1,
+            HighestDungeonFloor = 1,
+            EquippedGear = new()
+            {
+                { EquipmentSlot.Weapon, EquipmentGenerator.CreateStarterWand() }
+            },
+            Inventory = new(),
             Wizards = new List<WizardUnit>
             {
                 new()

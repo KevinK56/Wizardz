@@ -23,11 +23,14 @@ public class GameEngine : IDisposable
     public event Action<string>? OnNotification;
     public event Action<double, TimeSpan>? OnOfflineGainsCalculated;
 
-    public GameEngine(ISaveStorage saveStorage, ICloudSaveService cloudSaveService, IGameNotificationService notificationService)
+    public DungeonCrawlerEngine Dungeon { get; }
+
+    public GameEngine(ISaveStorage saveStorage, ICloudSaveService cloudSaveService, IGameNotificationService notificationService, DungeonCrawlerEngine dungeonEngine)
     {
         _saveStorage = saveStorage;
         _cloudSaveService = cloudSaveService;
         _notificationService = notificationService;
+        Dungeon = dungeonEngine;
         State = GameState.CreateDefault();
         _tickTimer = new PeriodicTimer(TimeSpan.FromMilliseconds(100)); // 10 ticks per sec
     }
@@ -49,6 +52,8 @@ public class GameEngine : IDisposable
         {
             State = GameState.CreateDefault();
         }
+
+        Dungeon.Initialize(State);
 
         IsInitialized = true;
         State.LastTickTimeUtc = DateTime.UtcNow;
@@ -160,6 +165,9 @@ public class GameEngine : IDisposable
             State.Mana += gain;
             State.LifetimeMana += gain;
         }
+
+        // 3. Tick Top-Down Dungeon Crawler
+        Dungeon.Tick(deltaSeconds);
 
         State.LastTickTimeUtc = DateTime.UtcNow;
     }
@@ -285,6 +293,7 @@ public class GameEngine : IDisposable
     {
         await _saveStorage.ClearStateAsync();
         State = GameState.CreateDefault();
+        Dungeon.Initialize(State);
         OnNotification?.Invoke("Game has been reset.");
         OnStateChanged?.Invoke();
     }
@@ -331,6 +340,7 @@ public class GameEngine : IDisposable
     public async Task ApplyCloudStateAsync(GameState cloudState)
     {
         State = cloudState;
+        Dungeon.Initialize(State);
         await SaveAsync();
         OnNotification?.Invoke("Loaded cloud save state!");
         OnStateChanged?.Invoke();
